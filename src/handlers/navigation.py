@@ -244,8 +244,9 @@ async def _navigate(target: Message | CallbackQuery, destination: str) -> None:
         await _send_subscriptions_page(target, page=_get_subs_page(user_id))
         return
     if destination == NavTarget.BONUSES_MENU:
-        from src.keyboards.main_menu import bonuses_menu_keyboard
-        await _send_clean_message(target, _("bot.menu"), reply_markup=bonuses_menu_keyboard())
+        # Плюшки напрямую открывают меню промокодов
+        from src.handlers.promocodes import promocodes_menu_keyboard
+        await _send_clean_message(target, _("promocodes.menu_title"), reply_markup=promocodes_menu_keyboard())
         return
     if destination == NavTarget.PROMOCODES_MENU:
         from src.handlers.promocodes import promocodes_menu_keyboard
@@ -338,11 +339,11 @@ async def cb_section_system(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "menu:section:bonuses")
 async def cb_section_bonuses(callback: CallbackQuery) -> None:
-    """Обработчик кнопки 'Плюшки' в главном меню."""
+    """Обработчик кнопки 'Плюшки' в главном меню - сразу открывает промокоды."""
     if await _not_admin(callback):
         return
     await callback.answer()
-    await _navigate(callback, NavTarget.BONUSES_MENU)
+    await _navigate(callback, NavTarget.PROMOCODES_MENU)
 
 @router.callback_query(F.data == "menu:section:promocodes")
 async def cb_section_promocodes(callback: CallbackQuery) -> None:
