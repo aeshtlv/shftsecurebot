@@ -257,9 +257,45 @@ async def process_successful_payment(
                 BotUser.set_remnawave_uuid(user_id, user_uuid)
             except Exception as create_error:
                 # Если пользователь уже существует (например, по username), находим его по telegram_id
+                # Проверяем как само исключение, так и его причину (для ApiClientError)
                 error_str = str(create_error).lower()
-                if "already exists" in error_str or "username" in error_str:
-                    logger.warning("User creation failed (likely already exists), trying to find by telegram_id: %s", create_error)
+                cause_str = ""
+                response_text = ""
+                
+                # Извлекаем информацию из оригинального исключения (HTTPStatusError)
+                if hasattr(create_error, '__cause__') and create_error.__cause__:
+                    original_exc = create_error.__cause__
+                    cause_str = str(original_exc).lower()
+                    
+                    # Пытаемся получить текст ответа API
+                    if hasattr(original_exc, 'response'):
+                        try:
+                            if hasattr(original_exc.response, 'text'):
+                                response_text = original_exc.response.text.lower()
+                            elif hasattr(original_exc.response, 'content'):
+                                try:
+                                    response_text = original_exc.response.content.decode('utf-8').lower()
+                                except:
+                                    pass
+                        except:
+                            pass
+                
+                # Проверяем различные варианты сообщения об ошибке
+                is_user_exists_error = (
+                    "already exists" in error_str or 
+                    "username" in error_str or 
+                    "already exists" in cause_str or 
+                    "username" in cause_str or
+                    "already exists" in response_text or 
+                    "username" in response_text or
+                    "a019" in response_text  # A019 - код ошибки "User username already exists"
+                )
+                
+                if is_user_exists_error:
+                    logger.warning(
+                        "User creation failed (likely already exists), trying to find by telegram_id. "
+                        "Error: %s, Response: %s", create_error, response_text[:200] if response_text else "N/A"
+                    )
                     try:
                         existing_user = await api_client.get_user_by_telegram_id(user_id)
                         user_info = existing_user.get("response", existing_user)
@@ -267,14 +303,23 @@ async def process_successful_payment(
                         if user_uuid:
                             logger.info("Found existing user by telegram_id: %s", user_uuid)
                             BotUser.set_remnawave_uuid(user_id, user_uuid)
-                            # Обновляем дату окончания подписки
-                            await api_client.update_user(user_uuid, expire_at=expire_date)
+                            # Обновляем дату окончания подписки и сквады
+                            update_payload = {"expireAt": expire_date}
+                            if settings.default_external_squad_uuid:
+                                update_payload["externalSquadUuid"] = settings.default_external_squad_uuid
+                            if internal_squads:
+                                update_payload["activeInternalSquads"] = internal_squads
+                            await api_client.update_user(user_uuid, **update_payload)
+                            logger.info("Updated existing user %s with new subscription", user_uuid)
                         else:
+                            logger.error("User found by telegram_id but no UUID returned")
                             raise create_error
                     except Exception as find_error:
                         logger.error("Failed to find user by telegram_id: %s", find_error)
                         raise create_error
                 else:
+                    # Другая ошибка - пробрасываем дальше
+                    logger.error("User creation failed with unexpected error: %s", create_error)
                     raise
             # На всякий случай повторно применим сквады через update (если create их проигнорировал)
             if settings.default_external_squad_uuid or internal_squads:
