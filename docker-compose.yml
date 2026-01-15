@@ -8,6 +8,9 @@ services:
       - .env
     environment:
       PYTHONPATH: /app
+    volumes:
+      # Сохраняем базу данных между пересборками контейнера
+      - ./data:/app/data
     networks:
       - remnawave-network
     # Бот будет ждать, пока API будет доступен (но не блокирует старт, если API еще не готов)

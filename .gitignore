@@ -36,6 +36,12 @@ logs/
 *.sqlite
 *.sqlite3
 bot_data.db
+# Директория data для хранения БД (монтируется через volume в Docker)
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+# Но сохраняем саму директорию data
+!data/.gitkeep
 
 # Docker
 .dockerignore

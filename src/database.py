@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "bot_data.db"
+# Используем директорию data для хранения БД (монтируется через volume в Docker)
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)  # Создаем директорию, если её нет
+DB_PATH = DATA_DIR / "bot_data.db"
 
 
 @contextmanager
