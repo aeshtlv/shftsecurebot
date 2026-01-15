@@ -1,7 +1,9 @@
 """Сервис для работы с платежами через YooKassa."""
+import io
 from datetime import datetime, timedelta
 from typing import Optional
 
+import qrcode
 from yookassa import Configuration, Payment as YooKassaPayment
 
 from src.config import get_settings
@@ -146,6 +148,30 @@ async def create_yookassa_payment(
         yookassa_payment_id = payment.id
         yookassa_payment_url = payment.confirmation.confirmation_url if payment.confirmation else None
         
+        # Получаем данные для QR-кода (для СБП может быть в confirmation_data)
+        qr_data = None
+        if payment.confirmation:
+            # Для СБП QR-код может быть в confirmation_data
+            try:
+                if hasattr(payment.confirmation, 'confirmation_data') and payment.confirmation.confirmation_data:
+                    confirmation_data = payment.confirmation.confirmation_data
+                    # Проверяем различные возможные поля для QR-кода
+                    if hasattr(confirmation_data, 'qr_data') and confirmation_data.qr_data:
+                        qr_data = confirmation_data.qr_data
+                    elif hasattr(confirmation_data, 'qr_code') and confirmation_data.qr_code:
+                        qr_data = confirmation_data.qr_code
+                    elif isinstance(confirmation_data, dict):
+                        qr_data = confirmation_data.get('qr_data') or confirmation_data.get('qr_code')
+            except Exception as e:
+                logger.debug("Failed to extract QR data from confirmation_data: %s", e)
+            
+            # Если нет специальных данных для QR, используем URL платежа
+            if not qr_data and yookassa_payment_url:
+                qr_data = yookassa_payment_url
+        elif yookassa_payment_url:
+            # Если нет confirmation, но есть URL, используем его
+            qr_data = yookassa_payment_url
+        
         # Обновляем запись в БД с информацией о платеже YooKassa
         Payment.update_yookassa_payment(
             payment_db_id,
@@ -154,15 +180,16 @@ async def create_yookassa_payment(
         )
         
         logger.info(
-            "YooKassa payment created: user_id=%s, payment_id=%s, amount=%s RUB, method=%s",
-            user_id, yookassa_payment_id, amount, payment_method
+            "YooKassa payment created: user_id=%s, payment_id=%s, amount=%s RUB, method=%s, has_qr=%s",
+            user_id, yookassa_payment_id, amount, payment_method, qr_data is not None
         )
         
         return {
             "payment_id": yookassa_payment_id,
             "payment_url": yookassa_payment_url,
             "payment_db_id": payment_db_id,
-            "amount": amount
+            "amount": amount,
+            "qr_data": qr_data or yookassa_payment_url  # Используем URL как fallback для QR
         }
     except Exception as e:
         # Логируем детали ошибки для отладки
@@ -323,4 +350,32 @@ async def process_yookassa_payment(
             )
         Payment.update_status(payment["id"], "failed")
         return {"success": False, "error": str(e)}
+
+
+def generate_qr_code_image(data: str) -> io.BytesIO:
+    """Генерирует QR-код из данных и возвращает как BytesIO.
+    
+    Args:
+        data: Данные для QR-кода (обычно URL или строка для СБП)
+    
+    Returns:
+        BytesIO объект с изображением QR-кода
+    """
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Сохраняем в BytesIO
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    
+    return img_bytes
 

@@ -700,6 +700,7 @@
     "contact_support": "Please contact support if the payment was deducted.",
     "unknown": "Unknown",
     "yookassa_invoice_created": "💳 Invoice created\n\n📅 Period: {months_text}\n💰 Amount: {amount} ₽\n\nClick the button below to proceed with payment.",
+    "yookassa_invoice_created_with_qr": "💳 Payment via SBP\n\n📎 Amount: {amount} ₽\n🆔 Payment ID: {payment_id}...\n\n🔒 Payment is processed through the secure YooKassa system\n✅ We accept SBP from all participating banks\n❓ If you have any problems, please contact support",
     "check_status": "🔄 Check status",
     "payment_not_found": "❌ Payment not found.",
     "unauthorized_payment": "❌ You don't have access to this payment.",

@@ -4,7 +4,7 @@ from typing import Optional
 
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.i18n import gettext as _
 
 from src.database import BotUser, PromoCode, Referral, Payment
@@ -1006,6 +1006,12 @@ async def handle_promo_code(message: Message) -> None:
                 payment_url = payment_data["payment_url"]
                 payment_db_id = payment_data["payment_db_id"]
                 amount = payment_data["amount"]
+                qr_data = payment_data.get("qr_data", payment_url)
+                
+                # Генерируем QR-код
+                from src.services.yookassa_service import generate_qr_code_image
+                qr_image = generate_qr_code_image(qr_data)
+                qr_file = BufferedInputFile(qr_image.read(), filename="qr_code.png")
                 
                 promo = PromoCode.get(promo_code)
                 promo_text = ""
@@ -1014,6 +1020,14 @@ async def handle_promo_code(message: Message) -> None:
                         promo_text = f"\n\n🎫 {_('user.promo_applied')}: {promo['discount_percent']}% {_('user.promo_discount')}"
                     elif promo.get("bonus_days"):
                         promo_text = f"\n\n🎫 {_('user.promo_applied')}: +{promo['bonus_days']} {_('user.promo_bonus_days')}"
+                
+                # Формируем текст сообщения
+                yookassa_payment_id = payment_data.get("payment_id", "")
+                payment_text = _("payment.yookassa_invoice_created_with_qr").format(
+                    months_text=_get_months_text(subscription_months, locale),
+                    amount=amount,
+                    payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                ) + promo_text
                 
                 buttons = [
                     [
@@ -1036,11 +1050,10 @@ async def handle_promo_code(message: Message) -> None:
                     ]
                 ]
                 
-                await message.answer(
-                    _("payment.yookassa_invoice_created").format(
-                        months_text=_get_months_text(subscription_months, locale),
-                        amount=amount
-                    ) + promo_text,
+                # Отправляем фото с QR-кодом и текстом
+                await message.answer_photo(
+                    photo=qr_file,
+                    caption=payment_text,
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
                 )
             except Exception as e:
@@ -1761,6 +1774,20 @@ async def cb_yookassa_pay(callback: CallbackQuery) -> None:
                 payment_url = payment_data["payment_url"]
                 payment_db_id = payment_data["payment_db_id"]
                 amount = payment_data["amount"]
+                qr_data = payment_data.get("qr_data", payment_url)
+                yookassa_payment_id = payment_data.get("payment_id", "")
+                
+                # Генерируем QR-код
+                from src.services.yookassa_service import generate_qr_code_image
+                qr_image = generate_qr_code_image(qr_data)
+                qr_file = BufferedInputFile(qr_image.read(), filename="qr_code.png")
+                
+                # Формируем текст сообщения
+                payment_text = _("payment.yookassa_invoice_created_with_qr").format(
+                    months_text=_get_months_text(subscription_months, locale),
+                    amount=amount,
+                    payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                )
                 
                 buttons = [
                     [
@@ -1783,11 +1810,11 @@ async def cb_yookassa_pay(callback: CallbackQuery) -> None:
                     ]
                 ]
                 
-                await callback.message.edit_text(
-                    _("payment.yookassa_invoice_created").format(
-                        months_text=_get_months_text(subscription_months, locale),
-                        amount=amount
-                    ),
+                # Отправляем фото с QR-кодом и текстом
+                await callback.message.delete()  # Удаляем предыдущее сообщение
+                await callback.message.answer_photo(
+                    photo=qr_file,
+                    caption=payment_text,
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
                 )
             except Exception as e:
