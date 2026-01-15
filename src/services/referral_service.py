@@ -25,8 +25,10 @@ async def grant_referral_bonus(referred_user_id: int) -> dict | None:
     referrer_id = referred_user.get("referrer_id")
     
     if not referrer_id:
-        logger.debug("User %s has no referrer", referred_user_id)
+        logger.info("🔍 Referral bonus check: User %s has no referrer_id", referred_user_id)
         return None
+    
+    logger.info("🔍 Referral bonus check: User %s has referrer_id=%s", referred_user_id, referrer_id)
     
     # Проверяем, не начислен ли уже бонус этому конкретному рефералу
     # (бонус начисляется только один раз — при первой активации триала/оплате)
@@ -40,11 +42,16 @@ async def grant_referral_bonus(referred_user_id: int) -> dict | None:
         row = cursor.fetchone()
         
         if not row:
-            logger.debug("No referral record for referrer=%s referred=%s", referrer_id, referred_user_id)
+            logger.warning(
+                "⚠️ Referral bonus: No referral record found in database for referrer=%s referred=%s. "
+                "Make sure the referral relationship was created when the user clicked the referral link.",
+                referrer_id, referred_user_id
+            )
             return None
         
         if row[0] > 0:
-            logger.debug("Bonus already granted for referrer=%s referred=%s", referrer_id, referred_user_id)
+            logger.info("✅ Referral bonus already granted for referrer=%s referred=%s (bonus_days=%s)", 
+                       referrer_id, referred_user_id, row[0])
             return None
     
     # Получаем UUID реферера в Remnawave

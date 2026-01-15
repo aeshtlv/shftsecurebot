@@ -386,6 +386,7 @@ async def process_yookassa_payment(
             "UPDATE payments SET invoice_payload = ? WHERE id = ?",
             (temp_payload, payment["id"])
         )
+        conn.commit()
     
     try:
         from src.services.payment_service import process_successful_payment
@@ -403,10 +404,12 @@ async def process_yookassa_payment(
                 "UPDATE payments SET invoice_payload = ? WHERE id = ?",
                 (original_payload, payment["id"])
             )
+            conn.commit()
         
         if result.get("success"):
-            # Обновляем статус платежа
-            Payment.update_status(payment["id"], "completed", result.get("user_uuid"))
+            # Обновляем статус платежа (если еще не обновлен в process_successful_payment)
+            if payment["status"] != "completed":
+                Payment.update_status(payment["id"], "completed", result.get("user_uuid"))
             return result
         else:
             Payment.update_status(payment["id"], "failed")
@@ -419,6 +422,7 @@ async def process_yookassa_payment(
                 "UPDATE payments SET invoice_payload = ? WHERE id = ?",
                 (original_payload, payment["id"])
             )
+            conn.commit()
         Payment.update_status(payment["id"], "failed")
         return {"success": False, "error": str(e)}
 
