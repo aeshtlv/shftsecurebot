@@ -355,12 +355,24 @@ async def handle_promo_create_code(message: Message) -> None:
     pending = PENDING_INPUT.get(user_id)
     
     # Проверяем, что пользователь действительно в процессе создания промокода
-    if not pending or pending.get("action") != "promo_create":
+    if not pending:
+        logger.debug(f"handle_promo_create_code: No pending input for user {user_id}")
+        return
+    
+    if not isinstance(pending, dict):
+        logger.debug(f"handle_promo_create_code: Pending is not dict for user {user_id}: {type(pending)}")
+        return
+    
+    if pending.get("action") != "promo_create":
+        logger.debug(f"handle_promo_create_code: Action is not promo_create for user {user_id}: {pending.get('action')}")
         return
     
     step = pending.get("step")
     if step != "code":
+        logger.debug(f"handle_promo_create_code: Step is not 'code' for user {user_id}: {step}")
         return
+    
+    logger.info(f"handle_promo_create_code: Processing code input for user {user_id}, step={step}")
     
     i18n = get_i18n()
     _ = i18n.gettext
