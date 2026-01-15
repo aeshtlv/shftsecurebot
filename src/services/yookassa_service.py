@@ -94,9 +94,9 @@ async def create_yookassa_payment(
     
     # Настройки платежа в зависимости от метода
     if payment_method == "sbp":
-        confirmation_type = "redirect"
+        confirmation_type = "qr"  # Для СБП используем QR-код
     elif payment_method == "card":
-        confirmation_type = "redirect"
+        confirmation_type = "redirect"  # Для карты используем редирект
     else:
         raise ValueError(f"Invalid payment method: {payment_method}")
     
@@ -129,17 +129,15 @@ async def create_yookassa_payment(
             }
         }
         
-        # Для СБП и банковской карты можно указать payment_method_data
-        # Но обычно YooKassa сам определяет метод по confirmation.type
-        # Если нужен конкретный метод, можно добавить:
-        # if payment_method == "sbp":
-        #     payment_params["payment_method_data"] = {"type": "sbp"}
-        # elif payment_method == "card":
-        #     payment_params["payment_method_data"] = {"type": "bank_card"}
+        # Для СБП обязательно указываем payment_method_data
+        if payment_method == "sbp":
+            payment_params["payment_method_data"] = {"type": "sbp"}
+        elif payment_method == "card":
+            payment_params["payment_method_data"] = {"type": "bank_card"}
         
         logger.info(
-            "Creating YooKassa payment: amount=%s RUB, method=%s, months=%s, user_id=%s, params=%s",
-            amount_str, payment_method, subscription_months, user_id, payment_params
+            "Creating YooKassa payment: amount=%s RUB, method=%s, months=%s, user_id=%s, confirmation_type=%s",
+            amount_str, payment_method, subscription_months, user_id, confirmation_type
         )
         
         # Создаем платеж в YooKassa
@@ -148,29 +146,70 @@ async def create_yookassa_payment(
         yookassa_payment_id = payment.id
         yookassa_payment_url = payment.confirmation.confirmation_url if payment.confirmation else None
         
-        # Получаем данные для QR-кода (для СБП может быть в confirmation_data)
+        # Получаем данные для QR-кода
         qr_data = None
         if payment.confirmation:
-            # Для СБП QR-код может быть в confirmation_data
+            # Логируем структуру confirmation для отладки
+            logger.debug(
+                "Payment confirmation: type=%s, has_confirmation_data=%s, has_confirmation_url=%s",
+                getattr(payment.confirmation, 'type', 'unknown'),
+                hasattr(payment.confirmation, 'confirmation_data'),
+                yookassa_payment_url is not None
+            )
+            
+            # Для СБП с confirmation_type="qr" QR-код должен быть в confirmation_data
             try:
-                if hasattr(payment.confirmation, 'confirmation_data') and payment.confirmation.confirmation_data:
+                # Проверяем confirmation_data (может быть объектом или словарем)
+                confirmation_data = None
+                if hasattr(payment.confirmation, 'confirmation_data'):
                     confirmation_data = payment.confirmation.confirmation_data
-                    # Проверяем различные возможные поля для QR-кода
-                    if hasattr(confirmation_data, 'qr_data') and confirmation_data.qr_data:
+                    logger.debug("Found confirmation_data: %s", type(confirmation_data))
+                elif hasattr(payment.confirmation, 'data'):
+                    confirmation_data = payment.confirmation.data
+                    logger.debug("Found confirmation.data: %s", type(confirmation_data))
+                
+                if confirmation_data:
+                    # Пытаемся извлечь QR-код различными способами
+                    if hasattr(confirmation_data, 'qr_data'):
                         qr_data = confirmation_data.qr_data
-                    elif hasattr(confirmation_data, 'qr_code') and confirmation_data.qr_code:
+                        logger.info("Extracted QR data from confirmation_data.qr_data")
+                    elif hasattr(confirmation_data, 'qr_code'):
                         qr_data = confirmation_data.qr_code
+                        logger.info("Extracted QR code from confirmation_data.qr_code")
                     elif isinstance(confirmation_data, dict):
                         qr_data = confirmation_data.get('qr_data') or confirmation_data.get('qr_code')
+                        if qr_data:
+                            logger.info("Extracted QR data from confirmation_data dict")
+                    # Также проверяем напрямую в confirmation
+                    if not qr_data:
+                        if hasattr(payment.confirmation, 'qr_data'):
+                            qr_data = payment.confirmation.qr_data
+                            logger.info("Extracted QR data from confirmation.qr_data")
+                        elif hasattr(payment.confirmation, 'qr_code'):
+                            qr_data = payment.confirmation.qr_code
+                            logger.info("Extracted QR code from confirmation.qr_code")
+                
+                # Если все еще нет QR-кода, логируем структуру для отладки
+                if not qr_data:
+                    logger.warning(
+                        "QR data not found in confirmation. Payment method: %s, Confirmation type: %s",
+                        payment_method,
+                        getattr(payment.confirmation, 'type', 'unknown')
+                    )
+                    # Логируем все атрибуты confirmation для отладки
+                    if hasattr(payment.confirmation, '__dict__'):
+                        logger.debug("Confirmation attributes: %s", list(payment.confirmation.__dict__.keys()))
             except Exception as e:
-                logger.debug("Failed to extract QR data from confirmation_data: %s", e)
+                logger.exception("Failed to extract QR data from confirmation: %s", e)
             
             # Если нет специальных данных для QR, используем URL платежа
             if not qr_data and yookassa_payment_url:
                 qr_data = yookassa_payment_url
+                logger.info("Using payment URL as QR data fallback: %s", yookassa_payment_url[:50])
         elif yookassa_payment_url:
             # Если нет confirmation, но есть URL, используем его
             qr_data = yookassa_payment_url
+            logger.info("Using payment URL as QR data (no confirmation): %s", yookassa_payment_url[:50])
         
         # Обновляем запись в БД с информацией о платеже YooKassa
         Payment.update_yookassa_payment(
