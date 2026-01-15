@@ -60,14 +60,24 @@ async def create_yookassa_payment(
     
     # Применяем промокод (если есть)
     discount_percent = 0
+    discount_rub = 0
     if promo_code:
         from src.database import PromoCode
         promo = PromoCode.get(promo_code)
         if promo:
             discount_percent = promo.get("discount_percent", 0) or 0
+            discount_rub = promo.get("discount_rub", 0) or 0
     
     # Вычисляем сумму с учетом скидки
-    amount_float = base_amount * (1 - discount_percent / 100)
+    if discount_rub > 0:
+        # Фиксированная скидка в рублях
+        amount_float = base_amount - discount_rub
+    elif discount_percent > 0:
+        # Процентная скидка
+        amount_float = base_amount * (1 - discount_percent / 100)
+    else:
+        amount_float = base_amount
+    
     amount = max(1.0, amount_float)  # Минимум 1 рубль
     
     subscription_days = subscription_months * 30

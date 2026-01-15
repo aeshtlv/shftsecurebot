@@ -48,6 +48,7 @@ def _format_promocode_info(promo: dict, locale: str = "ru") -> str:
         
         code = promo.get("code", "")
         discount = promo.get("discount_percent")
+        discount_rub = promo.get("discount_rub")
         bonus_days = promo.get("bonus_days")
         max_uses = promo.get("max_uses")
         current_uses = promo.get("current_uses", 0)
@@ -61,6 +62,8 @@ def _format_promocode_info(promo: dict, locale: str = "ru") -> str:
         
         if discount:
             lines.append(f"<b>Скидка:</b> {discount}%")
+        if discount_rub:
+            lines.append(f"<b>Скидка:</b> {discount_rub:.2f} ₽")
         if bonus_days:
             lines.append(f"<b>Бонусные дни:</b> +{bonus_days}")
         
@@ -120,6 +123,7 @@ async def cb_promo_list(callback: CallbackQuery) -> None:
     for promo in promocodes:
         code = promo.get("code", "")
         discount = promo.get("discount_percent")
+        discount_rub = promo.get("discount_rub")
         bonus_days = promo.get("bonus_days")
         is_active = promo.get("is_active", 1)
         current_uses = promo.get("current_uses", 0)
@@ -130,6 +134,8 @@ async def cb_promo_list(callback: CallbackQuery) -> None:
         
         if discount:
             promo_info += f" -{discount}%"
+        if discount_rub:
+            promo_info += f" -{discount_rub:.2f}₽"
         if bonus_days:
             promo_info += f" +{bonus_days}д"
         
@@ -402,6 +408,12 @@ async def handle_promo_create_code(message: Message) -> None:
         ],
         [
             InlineKeyboardButton(
+                text=_("promocodes.type_discount_rub"),
+                callback_data=f"promo:create_type:{code}:discount_rub"
+            )
+        ],
+        [
+            InlineKeyboardButton(
                 text=_("promocodes.type_bonus_days"),
                 callback_data=f"promo:create_type:{code}:bonus"
             )
@@ -459,6 +471,20 @@ async def handle_promo_create_number(message: Message) -> None:
             i18n = get_i18n()
             _ = i18n.gettext
             await message.answer(_("promocodes.invalid_discount"))
+    
+    elif step == "discount_rub":
+        try:
+            discount_rub = float(message.text.strip().replace(",", "."))
+            if discount_rub < 0:
+                raise ValueError
+            pending["discount_rub"] = discount_rub
+            PENDING_INPUT[user_id] = pending  # Сохраняем обновленное состояние
+            pending["step"] = "bonus_or_finish"
+            await _promo_create_next_step(message, pending)
+        except ValueError:
+            i18n = get_i18n()
+            _ = i18n.gettext
+            await message.answer(_("promocodes.invalid_discount_rub"))
     
     elif step == "bonus_days":
         try:
@@ -611,6 +637,7 @@ async def _promo_create_finish(message: Message, pending: dict) -> None:
     
     code = pending.get("code")
     discount_percent = pending.get("discount_percent")
+    discount_rub = pending.get("discount_rub")
     bonus_days = pending.get("bonus_days")
     max_uses = pending.get("max_uses")
     expires_at = pending.get("expires_at")
@@ -619,6 +646,7 @@ async def _promo_create_finish(message: Message, pending: dict) -> None:
         PromoCode.create(
             code=code,
             discount_percent=discount_percent,
+            discount_rub=discount_rub,
             bonus_days=bonus_days,
             max_uses=max_uses,
             expires_at=expires_at
@@ -685,16 +713,25 @@ async def cb_promo_create_type(callback: CallbackQuery) -> None:
     if promo_type == "discount":
         pending["step"] = "discount"
         pending["discount_percent"] = None
+        pending["discount_rub"] = None
         pending["bonus_days"] = None
         text = _("promocodes.enter_discount")
+    elif promo_type == "discount_rub":
+        pending["step"] = "discount_rub"
+        pending["discount_percent"] = None
+        pending["discount_rub"] = None
+        pending["bonus_days"] = None
+        text = _("promocodes.enter_discount_rub")
     elif promo_type == "bonus":
         pending["step"] = "bonus_days"
         pending["discount_percent"] = None
+        pending["discount_rub"] = None
         pending["bonus_days"] = None
         text = _("promocodes.enter_bonus_days")
     else:  # both
         pending["step"] = "discount"
         pending["discount_percent"] = None
+        pending["discount_rub"] = None
         pending["bonus_days"] = None
         text = _("promocodes.enter_discount")
     
@@ -745,6 +782,7 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
         
         code = pending.get("code")
         discount_percent = pending.get("discount_percent")
+        discount_rub = pending.get("discount_rub")
         bonus_days = pending.get("bonus_days")
         max_uses = pending.get("max_uses")
         
@@ -752,6 +790,7 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
             PromoCode.create(
                 code=code,
                 discount_percent=discount_percent,
+                discount_rub=discount_rub,
                 bonus_days=bonus_days,
                 max_uses=max_uses,
                 expires_at=None
@@ -794,10 +833,16 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
     i18n = get_i18n()
     _ = i18n.gettext
     
+    # Инициализируем text
+    text = ""
     if step == "bonus":
         text = _("promocodes.enter_max_uses_optional")
     elif step == "max_uses":
         text = _("promocodes.enter_expires_at_optional")
+    else:
+        # Если неизвестный шаг, возвращаемся в меню
+        await _navigate(callback, NavTarget.PROMOCODES_MENU)
+        return
     
     buttons = [
         [

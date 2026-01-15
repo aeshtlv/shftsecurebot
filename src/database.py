@@ -64,6 +64,7 @@ def init_database():
             CREATE TABLE IF NOT EXISTS promo_codes (
                 code TEXT PRIMARY KEY,
                 discount_percent INTEGER,
+                discount_rub REAL,
                 bonus_days INTEGER,
                 max_uses INTEGER,
                 current_uses INTEGER DEFAULT 0,
@@ -72,6 +73,12 @@ def init_database():
                 is_active BOOLEAN DEFAULT 1
             )
         """)
+        
+        # Миграция: добавляем поле discount_rub, если его нет
+        try:
+            cursor.execute("ALTER TABLE promo_codes ADD COLUMN discount_rub REAL")
+        except sqlite3.OperationalError:
+            pass  # Колонка уже существует
         
         # Таблица использования промокодов
         cursor.execute("""
@@ -258,6 +265,7 @@ class PromoCode:
     def create(
         code: str,
         discount_percent: Optional[int] = None,
+        discount_rub: Optional[float] = None,
         bonus_days: Optional[int] = None,
         max_uses: Optional[int] = None,
         expires_at: Optional[datetime] = None
@@ -265,9 +273,9 @@ class PromoCode:
         """Создает промокод."""
         with get_db_connection() as conn:
             conn.execute("""
-                INSERT INTO promo_codes (code, discount_percent, bonus_days, max_uses, expires_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (code.upper(), discount_percent, bonus_days, max_uses, expires_at))
+                INSERT INTO promo_codes (code, discount_percent, discount_rub, bonus_days, max_uses, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (code.upper(), discount_percent, discount_rub, bonus_days, max_uses, expires_at))
     
     @staticmethod
     def get(code: str) -> Optional[dict]:
