@@ -11,7 +11,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=_("actions.menu_nodes"), callback_data="menu:section:nodes")],
             [InlineKeyboardButton(text=_("actions.menu_resources"), callback_data="menu:section:resources")],
             [InlineKeyboardButton(text=_("actions.menu_billing"), callback_data="menu:section:billing")],
-            [InlineKeyboardButton(text=_("actions.menu_promocodes"), callback_data="menu:section:promocodes")],
+            [InlineKeyboardButton(text=_("actions.menu_bonuses"), callback_data="menu:section:bonuses")],
             [InlineKeyboardButton(text=_("actions.menu_bulk"), callback_data="menu:section:bulk")],
             [InlineKeyboardButton(text=_("actions.menu_system"), callback_data="menu:section:system")],
         ]
@@ -77,6 +77,15 @@ def bulk_menu_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text=_("actions.bulk_users"), callback_data="menu:bulk_users")],
             [InlineKeyboardButton(text=_("actions.bulk_hosts"), callback_data="menu:bulk_hosts")],
+            nav_row(NavTarget.MAIN_MENU),
+        ]
+    )
+
+
+def bonuses_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=_("actions.menu_promocodes"), callback_data="menu:section:promocodes")],
             nav_row(NavTarget.MAIN_MENU),
         ]
     )

@@ -35,7 +35,7 @@ def promocodes_menu_keyboard() -> InlineKeyboardMarkup:
                     callback_data="promo:list"
                 )
             ],
-            nav_row(NavTarget.MAIN_MENU),
+            nav_row(NavTarget.BONUSES_MENU),
         ]
     )
 
@@ -110,7 +110,7 @@ async def cb_promo_list(callback: CallbackQuery) -> None:
         await _send_clean_message(
             callback,
             _("promocodes.empty_list"),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.MAIN_MENU)])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.BONUSES_MENU)])
         )
         return
     
@@ -153,7 +153,7 @@ async def cb_promo_list(callback: CallbackQuery) -> None:
             )
         ])
     
-    buttons.append(nav_row(NavTarget.MAIN_MENU))
+    buttons.append(nav_row(NavTarget.BONUSES_MENU))
     
     await _send_clean_message(
         callback,
@@ -179,7 +179,7 @@ async def cb_promo_view(callback: CallbackQuery) -> None:
         await _send_clean_message(
             callback,
             _("promocodes.not_found"),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.MAIN_MENU)])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.BONUSES_MENU)])
         )
         return
     
@@ -210,7 +210,7 @@ async def cb_promo_view(callback: CallbackQuery) -> None:
                 callback_data="promo:list"
             )
         ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.BONUSES_MENU)
     ]
     
     await _send_clean_message(
@@ -278,7 +278,7 @@ async def cb_promo_delete_confirm(callback: CallbackQuery) -> None:
                 callback_data=f"promo:view:{code}"
             )
         ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.BONUSES_MENU)
     ]
     
     await _send_clean_message(
@@ -327,13 +327,13 @@ async def cb_promo_create(callback: CallbackQuery) -> None:
     text += _("promocodes.enter_code")
     
     buttons = [
-        [
-            InlineKeyboardButton(
-                text=_("actions.cancel"),
-                callback_data="menu:section:promocodes"
-            )
-        ],
-        nav_row(NavTarget.MAIN_MENU)
+            [
+                InlineKeyboardButton(
+                    text=_("actions.cancel"),
+                    callback_data="nav:back:bonuses_menu"
+                )
+            ],
+        nav_row(NavTarget.BONUSES_MENU)
     ]
     
     await _send_clean_message(
@@ -345,8 +345,78 @@ async def cb_promo_create(callback: CallbackQuery) -> None:
 
 
 @router.message(F.text.regexp(r'^[A-Za-z0-9]{3,20}$'))
-async def handle_promo_create(message: Message) -> None:
-    """Обработка ввода данных при создании промокода."""
+async def handle_promo_create_code(message: Message) -> None:
+    """Обработка ввода кода промокода при создании."""
+    from src.utils.auth import is_admin
+    if not is_admin(message.from_user.id):
+        return
+    
+    user_id = message.from_user.id
+    pending = PENDING_INPUT.get(user_id)
+    
+    if not pending or pending.get("action") != "promo_create":
+        return
+    
+    step = pending.get("step")
+    if step != "code":
+        return
+    
+    i18n = get_i18n()
+    _ = i18n.gettext
+    
+    code = message.text.upper()
+    # Проверяем, не существует ли уже такой промокод
+    existing = PromoCode.get_by_code(code)
+    if existing:
+        await message.answer(
+            _("promocodes.code_exists").format(code=code),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                nav_row(NavTarget.BONUSES_MENU)
+            ])
+        )
+        del PENDING_INPUT[user_id]
+        return
+    
+    PENDING_INPUT[user_id] = {"action": "promo_create", "step": "type", "code": code}
+    
+    text = _("promocodes.choose_type")
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text=_("promocodes.type_discount"),
+                callback_data=f"promo:create_type:{code}:discount"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=_("promocodes.type_bonus_days"),
+                callback_data=f"promo:create_type:{code}:bonus"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=_("promocodes.type_both"),
+                callback_data=f"promo:create_type:{code}:both"
+            )
+        ],
+            [
+                InlineKeyboardButton(
+                    text=_("actions.cancel"),
+                    callback_data="nav:back:bonuses_menu"
+                )
+            ],
+        nav_row(NavTarget.BONUSES_MENU)
+    ]
+    
+    await message.answer(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+    )
+
+
+@router.message(F.text.regexp(r'^\d+$'))
+async def handle_promo_create_number(message: Message) -> None:
+    """Обработка ввода числовых значений при создании промокода."""
     from src.utils.auth import is_admin
     if not is_admin(message.from_user.id):
         return
@@ -362,73 +432,27 @@ async def handle_promo_create(message: Message) -> None:
     
     step = pending.get("step")
     
-    if step == "code":
-        code = message.text.upper()
-        # Проверяем, не существует ли уже такой промокод
-        existing = PromoCode.get_by_code(code)
-        if existing:
-            await message.answer(
-                _("promocodes.code_exists").format(code=code),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    nav_row(NavTarget.MAIN_MENU)
-                ])
-            )
-            del PENDING_INPUT[user_id]
-            return
-        
-        PENDING_INPUT[user_id] = {"action": "promo_create", "step": "type", "code": code}
-        
-        text = _("promocodes.choose_type")
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    text=_("promocodes.type_discount"),
-                    callback_data=f"promo:create_type:{code}:discount"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_("promocodes.type_bonus_days"),
-                    callback_data=f"promo:create_type:{code}:bonus"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_("promocodes.type_both"),
-                    callback_data=f"promo:create_type:{code}:both"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_("actions.cancel"),
-                    callback_data="menu:section:promocodes"
-                )
-            ],
-            nav_row(NavTarget.MAIN_MENU)
-        ]
-        
-        await message.answer(
-            text,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-        )
-    
-    elif step == "discount":
+    if step == "discount":
         try:
-            discount = int(message.text)
+            discount = int(message.text.strip())
             if discount < 0 or discount > 100:
                 raise ValueError
             pending["discount_percent"] = discount
+            PENDING_INPUT[user_id] = pending  # Сохраняем обновленное состояние
             pending["step"] = "bonus_or_finish"
             await _promo_create_next_step(message, pending)
         except ValueError:
+            i18n = get_i18n()
+            _ = i18n.gettext
             await message.answer(_("promocodes.invalid_discount"))
     
     elif step == "bonus_days":
         try:
-            bonus_days = int(message.text)
+            bonus_days = int(message.text.strip())
             if bonus_days < 0:
                 raise ValueError
             pending["bonus_days"] = bonus_days
+            PENDING_INPUT[user_id] = pending  # Сохраняем обновленное состояние
             pending["step"] = "max_uses"
             await _promo_create_next_step(message, pending)
         except ValueError:
@@ -436,16 +460,40 @@ async def handle_promo_create(message: Message) -> None:
     
     elif step == "max_uses":
         try:
-            max_uses = int(message.text) if message.text.strip() else None
+            max_uses = int(message.text.strip()) if message.text.strip() else None
             if max_uses is not None and max_uses < 1:
                 raise ValueError
             pending["max_uses"] = max_uses
+            PENDING_INPUT[user_id] = pending  # Сохраняем обновленное состояние
             pending["step"] = "expires_at"
             await _promo_create_next_step(message, pending)
         except ValueError:
             await message.answer(_("promocodes.invalid_max_uses"))
     
-    elif step == "expires_at":
+    else:
+        # Неизвестный шаг для числового ввода, игнорируем
+        return
+
+
+@router.message()
+async def handle_promo_create_date(message: Message) -> None:
+    """Обработка ввода даты при создании промокода."""
+    from src.utils.auth import is_admin
+    if not is_admin(message.from_user.id):
+        return
+    
+    user_id = message.from_user.id
+    pending = PENDING_INPUT.get(user_id)
+    
+    if not pending or pending.get("action") != "promo_create":
+        return
+    
+    step = pending.get("step")
+    
+    if step == "expires_at":
+        i18n = get_i18n()
+        _ = i18n.gettext
+        
         expires_text = message.text.strip()
         if expires_text:
             # Парсим дату в формате DD.MM.YYYY или DD.MM.YYYY HH:MM
@@ -485,13 +533,13 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
                         callback_data=f"promo:skip_bonus:{pending.get('code')}"
                     )
                 ],
-                [
-                    InlineKeyboardButton(
-                        text=_("actions.cancel"),
-                        callback_data="menu:section:promocodes"
-                    )
-                ],
-                nav_row(NavTarget.MAIN_MENU)
+            [
+                InlineKeyboardButton(
+                    text=_("actions.cancel"),
+                    callback_data="nav:back:bonuses_menu"
+                )
+            ],
+                nav_row(NavTarget.BONUSES_MENU)
             ]
         else:
             pending["step"] = "max_uses"
@@ -506,10 +554,10 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
                 [
                     InlineKeyboardButton(
                         text=_("actions.cancel"),
-                        callback_data="menu:section:promocodes"
+                        callback_data="nav:back:bonuses_menu"
                     )
                 ],
-                nav_row(NavTarget.MAIN_MENU)
+                nav_row(NavTarget.BONUSES_MENU)
             ]
         
         await message.answer(
@@ -530,10 +578,10 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
             [
                 InlineKeyboardButton(
                     text=_("actions.cancel"),
-                    callback_data="menu:section:promocodes"
+                    callback_data="nav:back:bonuses_menu"
                 )
             ],
-            nav_row(NavTarget.MAIN_MENU)
+            nav_row(NavTarget.BONUSES_MENU)
         ]
         
         await message.answer(
@@ -578,7 +626,7 @@ async def _promo_create_finish(message: Message, pending: dict) -> None:
                     callback_data=f"promo:view:{code}"
                 )
             ],
-            nav_row(NavTarget.MAIN_MENU)
+            nav_row(NavTarget.BONUSES_MENU)
         ]
         
         await message.answer(
@@ -595,7 +643,7 @@ async def _promo_create_finish(message: Message, pending: dict) -> None:
         _ = i18n.gettext
         await message.answer(
             _("promocodes.create_failed"),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.MAIN_MENU)])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.BONUSES_MENU)])
         )
         del PENDING_INPUT[user_id]
 
@@ -638,13 +686,13 @@ async def cb_promo_create_type(callback: CallbackQuery) -> None:
     PENDING_INPUT[user_id] = pending
     
     buttons = [
-        [
-            InlineKeyboardButton(
-                text=_("actions.cancel"),
-                callback_data="menu:section:promocodes"
-            )
-        ],
-        nav_row(NavTarget.MAIN_MENU)
+            [
+                InlineKeyboardButton(
+                    text=_("actions.cancel"),
+                    callback_data="nav:back:bonuses_menu"
+                )
+            ],
+        nav_row(NavTarget.BONUSES_MENU)
     ]
     
     await _send_clean_message(
@@ -708,7 +756,7 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
                         callback_data=f"promo:view:{code}"
                     )
                 ],
-                nav_row(NavTarget.MAIN_MENU)
+                nav_row(NavTarget.BONUSES_MENU)
             ]
             
             await _send_clean_message(
@@ -743,13 +791,13 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
                 callback_data=f"promo:skip_{'max_uses' if step == 'bonus' else 'expires'}:{code}"
             )
         ],
-        [
-            InlineKeyboardButton(
-                text=_("actions.cancel"),
-                callback_data="menu:section:promocodes"
-            )
-        ],
-        nav_row(NavTarget.MAIN_MENU)
+            [
+                InlineKeyboardButton(
+                    text=_("actions.cancel"),
+                    callback_data="nav:back:bonuses_menu"
+                )
+            ],
+        nav_row(NavTarget.BONUSES_MENU)
     ]
     
     await _send_clean_message(
