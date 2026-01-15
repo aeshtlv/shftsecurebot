@@ -80,14 +80,14 @@ async def create_subscription_invoice(
     }
     
     description_ru, description_en = locale_map[subscription_months]
-    description = f"Подписка Remnawave {description_ru} | Remnawave subscription {description_en}"
+    description = f"Подписка shftsecure {description_ru} | shftsecure subscription {description_en}"
     # LabeledPrice.label имеет строгий лимит длины у Telegram — держим коротким
-    price_label = f"Remnawave {subscription_months}m"
+    price_label = f"shftsecure {subscription_months}m"
     
     # Создаем invoice link
     try:
         invoice_link = await bot.create_invoice_link(
-            title=f"Remnawave {description_ru}",
+            title=f"shftsecure {description_ru}",
             description=description,
             payload=invoice_payload,
             provider_token=None,  # Для Stars не требуется
