@@ -1589,36 +1589,70 @@ async def cb_buy_subscription(callback: CallbackQuery) -> None:
                     ]
                 ]
                 
-                await callback.message.edit_text(
-                    _("payment.choose_payment_method"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-                )
+                # Безопасное редактирование - если сообщение фото, удаляем и отправляем новое
+                try:
+                    await callback.message.edit_text(
+                        _("payment.choose_payment_method"),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
+                except Exception:
+                    # Если не удалось отредактировать (например, это фото), удаляем и отправляем новое
+                    try:
+                        await callback.message.delete()
+                    except Exception:
+                        pass
+                    await callback.message.answer(
+                        _("payment.choose_payment_method"),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
     except ValueError as e:
         logger.exception("Invalid subscription months")
         i18n = get_i18n()
         with i18n.use_locale(locale):
-            await callback.message.edit_text(
-                _("payment.error_creating_invoice", locale=locale),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text=_("user_menu.back", locale=locale),
-                        callback_data="user:buy"
-                    )
-                ]])
-            )
+            error_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=_("user_menu.back", locale=locale),
+                    callback_data="user:buy"
+                )
+            ]])
+            try:
+                await callback.message.edit_text(
+                    _("payment.error_creating_invoice", locale=locale),
+                    reply_markup=error_markup
+                )
+            except Exception:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer(
+                    _("payment.error_creating_invoice", locale=locale),
+                    reply_markup=error_markup
+                )
     except Exception as e:
         logger.exception("Failed to create invoice")
         i18n = get_i18n()
         with i18n.use_locale(locale):
-            await callback.message.edit_text(
-                _("payment.error_creating_invoice"),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text=_("user_menu.back"),
-                        callback_data="user:buy"
-                    )
-                ]])
-            )
+            error_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:buy"
+                )
+            ]])
+            try:
+                await callback.message.edit_text(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=error_markup
+                )
+            except Exception:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=error_markup
+                )
 
 
 @router.callback_query(F.data.startswith("payment:"))
@@ -1676,13 +1710,26 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                     ]
                 ]
                 
-                await callback.message.edit_text(
-                    _("payment.promo_code_prompt").format(
-                        months_text=_get_months_text(subscription_months, locale),
-                        stars=stars_price
-                    ),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-                )
+                try:
+                    await callback.message.edit_text(
+                        _("payment.promo_code_prompt").format(
+                            months_text=_get_months_text(subscription_months, locale),
+                            stars=stars_price
+                        ),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
+                except Exception:
+                    try:
+                        await callback.message.delete()
+                    except Exception:
+                        pass
+                    await callback.message.answer(
+                        _("payment.promo_code_prompt").format(
+                            months_text=_get_months_text(subscription_months, locale),
+                            stars=stars_price
+                        ),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
             elif payment_method in ("sbp", "card"):
                 # Показываем промокод или создаем платеж через YooKassa
                 from src.config import get_settings
@@ -1718,39 +1765,74 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                     ]
                 ]
                 
-                await callback.message.edit_text(
-                    _("payment.promo_code_prompt_yookassa").format(
-                        months_text=_get_months_text(subscription_months, locale),
-                        amount=amount
-                    ),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-                )
+                try:
+                    await callback.message.edit_text(
+                        _("payment.promo_code_prompt_yookassa").format(
+                            months_text=_get_months_text(subscription_months, locale),
+                            amount=amount
+                        ),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
+                except Exception:
+                    try:
+                        await callback.message.delete()
+                    except Exception:
+                        pass
+                    await callback.message.answer(
+                        _("payment.promo_code_prompt_yookassa").format(
+                            months_text=_get_months_text(subscription_months, locale),
+                            amount=amount
+                        ),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
     except (ValueError, IndexError) as e:
         logger.exception("Invalid payment method callback")
         i18n = get_i18n()
         with i18n.use_locale(locale):
-            await callback.message.edit_text(
-                _("payment.error_creating_invoice"),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text=_("user_menu.back"),
-                        callback_data="user:buy"
-                    )
-                ]])
-            )
+            error_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:buy"
+                )
+            ]])
+            try:
+                await callback.message.edit_text(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=error_markup
+                )
+            except Exception:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=error_markup
+                )
     except Exception as e:
         logger.exception("Failed to process payment method selection")
         i18n = get_i18n()
         with i18n.use_locale(locale):
-            await callback.message.edit_text(
-                _("payment.error_creating_invoice"),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text=_("user_menu.back"),
-                        callback_data="user:buy"
-                    )
-                ]])
-            )
+            error_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:buy"
+                )
+            ]])
+            try:
+                await callback.message.edit_text(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=error_markup
+                )
+            except Exception:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=error_markup
+                )
 
 
 @router.callback_query(F.data.startswith("yookassa_pay:"))
