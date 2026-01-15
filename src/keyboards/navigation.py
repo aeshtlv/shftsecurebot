@@ -23,6 +23,7 @@ class NavTarget:
     USER_SEARCH_PROMPT = "user_search_prompt"
     USER_SEARCH_RESULTS = "user_search_results"
     SUBS_LIST = "subs_list"
+    PROMOCODES_MENU = "promocodes_menu"
 
 
 def nav_row(back_to: str | None = None) -> list[InlineKeyboardButton]:

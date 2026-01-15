@@ -13,6 +13,7 @@ from src.handlers.system import router as system_router
 from src.handlers.users import router as users_router
 from src.handlers.user_public import router as user_public_router
 from src.handlers.payments import router as payments_router
+from src.handlers.promocodes import router as promocodes_router
 
 
 def register_handlers(dp: Dispatcher) -> None:
@@ -31,6 +32,7 @@ def register_handlers(dp: Dispatcher) -> None:
     dp.include_router(billing_router)
     dp.include_router(bulk_router)
     dp.include_router(system_router)
+    dp.include_router(promocodes_router)
     # Старый basic_router оставляем для обратной совместимости (временно)
     dp.include_router(basic_router)
     dp.errors.register(errors_handler)

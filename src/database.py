@@ -321,6 +321,60 @@ class PromoCode:
             """, (code.upper(), user_id))
             
         return True
+    
+    @staticmethod
+    def get_all() -> list[dict]:
+        """Получает все промокоды (для админки)."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM promo_codes 
+                ORDER BY created_at DESC
+            """)
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+    
+    @staticmethod
+    def get_by_code(code: str) -> Optional[dict]:
+        """Получает промокод по коду (включая неактивные, для админки)."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM promo_codes WHERE code = ?",
+                (code.upper(),)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    @staticmethod
+    def set_active(code: str, is_active: bool) -> bool:
+        """Активирует или деактивирует промокод."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE promo_codes 
+                SET is_active = ? 
+                WHERE code = ?
+            """, (1 if is_active else 0, code.upper()))
+            return cursor.rowcount > 0
+    
+    @staticmethod
+    def delete(code: str) -> bool:
+        """Удаляет промокод."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM promo_codes WHERE code = ?", (code.upper(),))
+            return cursor.rowcount > 0
+    
+    @staticmethod
+    def get_usage_count(code: str) -> int:
+        """Получает количество использований промокода."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) FROM promo_code_usage WHERE code = ?
+            """, (code.upper(),))
+            return cursor.fetchone()[0]
 
 
 class Referral:
