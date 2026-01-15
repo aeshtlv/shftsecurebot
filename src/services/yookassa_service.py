@@ -64,8 +64,9 @@ async def create_yookassa_payment(
         if promo:
             discount_percent = promo.get("discount_percent", 0) or 0
     
-    amount = int(base_amount * (1 - discount_percent / 100))
-    amount = max(1, amount)  # Минимум 1 рубль
+    # Вычисляем сумму с учетом скидки
+    amount_float = base_amount * (1 - discount_percent / 100)
+    amount = max(1.0, amount_float)  # Минимум 1 рубль
     
     subscription_days = subscription_months * 30
     
@@ -91,19 +92,25 @@ async def create_yookassa_payment(
     
     # Настройки платежа в зависимости от метода
     if payment_method == "sbp":
-        payment_method_type = "sbp"
         confirmation_type = "redirect"
     elif payment_method == "card":
-        payment_method_type = "bank_card"
         confirmation_type = "redirect"
     else:
         raise ValueError(f"Invalid payment method: {payment_method}")
     
     try:
-        # Создаем платеж в YooKassa
-        payment = YooKassaPayment.create({
+        # YooKassa требует сумму как строку с двумя знаками после запятой
+        # Убеждаемся, что сумма не меньше минимальной (1 рубль)
+        if amount < 1.0:
+            raise ValueError(f"Amount too small: {amount} RUB. Minimum is 1 RUB")
+        
+        # Форматируем сумму с двумя знаками после запятой
+        amount_str = f"{float(amount):.2f}"
+        
+        # Формируем параметры платежа
+        payment_params = {
             "amount": {
-                "value": f"{amount:.2f}",
+                "value": amount_str,
                 "currency": "RUB"
             },
             "confirmation": {
@@ -118,7 +125,23 @@ async def create_yookassa_payment(
                 "payment_db_id": str(payment_db_id),
                 "promo_code": promo_code or ""
             }
-        }, payment_method_type)
+        }
+        
+        # Для СБП и банковской карты можно указать payment_method_data
+        # Но обычно YooKassa сам определяет метод по confirmation.type
+        # Если нужен конкретный метод, можно добавить:
+        # if payment_method == "sbp":
+        #     payment_params["payment_method_data"] = {"type": "sbp"}
+        # elif payment_method == "card":
+        #     payment_params["payment_method_data"] = {"type": "bank_card"}
+        
+        logger.info(
+            "Creating YooKassa payment: amount=%s RUB, method=%s, months=%s, user_id=%s, params=%s",
+            amount_str, payment_method, subscription_months, user_id, payment_params
+        )
+        
+        # Создаем платеж в YooKassa
+        payment = YooKassaPayment.create(payment_params)
         
         yookassa_payment_id = payment.id
         yookassa_payment_url = payment.confirmation.confirmation_url if payment.confirmation else None
@@ -142,10 +165,33 @@ async def create_yookassa_payment(
             "amount": amount
         }
     except Exception as e:
-        logger.exception(
-            "Failed to create YooKassa payment for user %s: %s",
-            user_id, e
+        # Логируем детали ошибки для отладки
+        error_details = str(e)
+        error_type = type(e).__name__
+        
+        # Пытаемся получить детали ответа от YooKassa
+        response_text = None
+        if hasattr(e, 'response'):
+            if hasattr(e.response, 'text'):
+                response_text = e.response.text
+            elif hasattr(e.response, 'content'):
+                try:
+                    response_text = e.response.content.decode('utf-8')
+                except:
+                    response_text = str(e.response.content)
+        
+        if response_text:
+            logger.error(
+                "YooKassa API error response: %s", response_text
+            )
+            error_details = f"{error_details}\nAPI Response: {response_text}"
+        
+        logger.error(
+            "Failed to create YooKassa payment for user %s: %s (%s)\nAmount: %s RUB, Method: %s, Payment DB ID: %s",
+            user_id, error_details, error_type, amount, payment_method, payment_db_id
         )
+        logger.exception("Full traceback:")
+        
         # Обновляем статус платежа на failed
         Payment.update_status(payment_db_id, "failed")
         raise
