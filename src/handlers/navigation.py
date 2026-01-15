@@ -277,10 +277,12 @@ async def cb_nav_home(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("nav:back:"))
 async def cb_nav_back(callback: CallbackQuery) -> None:
     """Обработчик кнопки 'Назад'."""
-    if await _not_admin(callback):
-        return
     await callback.answer()
     target = callback.data.split(":", 2)[2]
+    # Для админских меню проверяем права, для пользовательских - нет
+    if target != NavTarget.USER_MENU and target != NavTarget.PROMOCODES_MENU:
+        if await _not_admin(callback):
+            return
     await _navigate(callback, target)
 
 

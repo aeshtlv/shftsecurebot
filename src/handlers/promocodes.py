@@ -114,7 +114,7 @@ async def cb_promo_list(callback: CallbackQuery) -> None:
         await _send_clean_message(
             callback,
             _("promocodes.empty_list"),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.MAIN_MENU)])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.USER_MENU)])
         )
         return
     
@@ -160,7 +160,7 @@ async def cb_promo_list(callback: CallbackQuery) -> None:
             )
         ])
     
-    buttons.append(nav_row(NavTarget.MAIN_MENU))
+    buttons.append(nav_row(NavTarget.USER_MENU))
     
     await _send_clean_message(
         callback,
@@ -186,7 +186,7 @@ async def cb_promo_view(callback: CallbackQuery) -> None:
         await _send_clean_message(
             callback,
             _("promocodes.not_found"),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.MAIN_MENU)])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.USER_MENU)])
         )
         return
     
@@ -217,7 +217,7 @@ async def cb_promo_view(callback: CallbackQuery) -> None:
                 callback_data="promo:list"
             )
         ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.USER_MENU)
     ]
     
     await _send_clean_message(
@@ -285,7 +285,7 @@ async def cb_promo_delete_confirm(callback: CallbackQuery) -> None:
                 callback_data=f"promo:view:{code}"
             )
         ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.USER_MENU)
     ]
     
     await _send_clean_message(
@@ -340,7 +340,7 @@ async def cb_promo_create(callback: CallbackQuery) -> None:
                     callback_data="nav:back:user_menu"
                 )
             ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.USER_MENU)
     ]
     
     await _send_clean_message(
@@ -391,7 +391,7 @@ async def handle_promo_create_code(message: Message) -> None:
         await message.answer(
             _("promocodes.code_exists").format(code=code),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                nav_row(NavTarget.MAIN_MENU)
+                nav_row(NavTarget.USER_MENU)
             ])
         )
         del PENDING_INPUT[user_id]
@@ -431,7 +431,7 @@ async def handle_promo_create_code(message: Message) -> None:
                     callback_data="nav:back:user_menu"
                 )
             ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.USER_MENU)
     ]
     
     await message.answer(
@@ -581,7 +581,7 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
                     callback_data="nav:back:user_menu"
                 )
             ],
-                nav_row(NavTarget.MAIN_MENU)
+                nav_row(NavTarget.USER_MENU)
             ]
         else:
             pending["step"] = "max_uses"
@@ -599,7 +599,7 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
                         callback_data="nav:back:user_menu"
                     )
                 ],
-                nav_row(NavTarget.MAIN_MENU)
+                nav_row(NavTarget.USER_MENU)
             ]
         
         await message.answer(
@@ -623,7 +623,7 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
                     callback_data="nav:back:user_menu"
                 )
             ],
-            nav_row(NavTarget.MAIN_MENU)
+            nav_row(NavTarget.USER_MENU)
         ]
         
         await message.answer(
@@ -670,7 +670,7 @@ async def _promo_create_finish(message: Message, pending: dict) -> None:
                     callback_data=f"promo:view:{code}"
                 )
             ],
-            nav_row(NavTarget.MAIN_MENU)
+            nav_row(NavTarget.USER_MENU)
         ]
         
         await message.answer(
@@ -687,7 +687,7 @@ async def _promo_create_finish(message: Message, pending: dict) -> None:
         _ = i18n.gettext
         await message.answer(
             _("promocodes.create_failed"),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.MAIN_MENU)])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[nav_row(NavTarget.USER_MENU)])
         )
         del PENDING_INPUT[user_id]
 
@@ -745,7 +745,7 @@ async def cb_promo_create_type(callback: CallbackQuery) -> None:
                     callback_data="nav:back:user_menu"
                 )
             ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.USER_MENU)
     ]
     
     await _send_clean_message(
@@ -811,7 +811,7 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
                         callback_data=f"promo:view:{code}"
                     )
                 ],
-                nav_row(NavTarget.MAIN_MENU)
+                nav_row(NavTarget.USER_MENU)
             ]
             
             await _send_clean_message(
@@ -858,7 +858,7 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
                     callback_data="nav:back:user_menu"
                 )
             ],
-        nav_row(NavTarget.MAIN_MENU)
+        nav_row(NavTarget.USER_MENU)
     ]
     
     await _send_clean_message(
