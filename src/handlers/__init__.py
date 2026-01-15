@@ -13,15 +13,12 @@ from src.handlers.system import router as system_router
 from src.handlers.users import router as users_router
 from src.handlers.user_public import router as user_public_router
 from src.handlers.payments import router as payments_router
-from src.handlers.promocodes import router as promocodes_router
 
 
 def register_handlers(dp: Dispatcher) -> None:
     # Регистрируем роутеры в порядке приоритета
     # Сначала обработчики платежей (специфичные типы сообщений)
     dp.include_router(payments_router)
-    # Затем админские роутеры (promocodes должен обрабатываться раньше user_public для админов)
-    dp.include_router(promocodes_router)
     # Затем публичные пользовательские роутеры (команды /start и т.д.)
     dp.include_router(user_public_router)
     # Затем общие роутеры (commands, navigation), затем доменные

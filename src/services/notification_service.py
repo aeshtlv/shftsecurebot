@@ -76,7 +76,6 @@ async def notify_payment_success(
     username: Optional[str],
     subscription_months: int,
     stars: int,
-    promo_code: Optional[str],
     remnawave_uuid: str,
     expire_date: str
 ) -> None:
@@ -84,48 +83,14 @@ async def notify_payment_success(
     user_mention = f"@{username}" if username else f"User {user_id}"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    promo_text = f"\n🎫 Промокод: <code>{promo_code}</code>" if promo_code else ""
-    
     text = (
         f"💰 <b>Новая покупка</b>\n\n"
         f"👤 Пользователь: {user_mention}\n"
         f"🆔 Telegram ID: <code>{user_id}</code>\n"
         f"⭐ Сумма: <b>{stars} Stars</b>\n"
-        f"📅 Период: <b>{subscription_months} мес.</b>{promo_text}\n"
+        f"📅 Период: <b>{subscription_months} мес.</b>\n"
         f"🔗 UUID: <code>{remnawave_uuid}</code>\n"
         f"⏳ Истекает: <code>{expire_date}</code>\n"
-        f"📅 Время: {timestamp}"
-    )
-    
-    await send_admin_notification(bot, text)
-
-
-async def notify_promo_usage(
-    bot: Bot,
-    user_id: int,
-    username: Optional[str],
-    promo_code: str,
-    discount_percent: int,
-    bonus_days: int
-) -> None:
-    """Уведомление об использовании промокода."""
-    user_mention = f"@{username}" if username else f"User {user_id}"
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    benefit_text = ""
-    if discount_percent > 0:
-        benefit_text = f"💸 Скидка: <b>{discount_percent}%</b>"
-    if bonus_days > 0:
-        if benefit_text:
-            benefit_text += "\n"
-        benefit_text += f"🎁 Бонусные дни: <b>+{bonus_days}</b>"
-    
-    text = (
-        f"🎫 <b>Использован промокод</b>\n\n"
-        f"👤 Пользователь: {user_mention}\n"
-        f"🆔 Telegram ID: <code>{user_id}</code>\n"
-        f"🏷 Промокод: <code>{promo_code}</code>\n"
-        f"{benefit_text}\n"
         f"📅 Время: {timestamp}"
     )
     

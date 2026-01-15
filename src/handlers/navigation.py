@@ -243,16 +243,6 @@ async def _navigate(target: Message | CallbackQuery, destination: str) -> None:
     if destination == NavTarget.SUBS_LIST:
         await _send_subscriptions_page(target, page=_get_subs_page(user_id))
         return
-    if destination == NavTarget.BONUSES_MENU:
-        # Плюшки напрямую открывают меню промокодов
-        from src.handlers.promocodes import promocodes_menu_keyboard
-        await _send_clean_message(target, _("promocodes.menu_title"), reply_markup=promocodes_menu_keyboard())
-        return
-    if destination == NavTarget.PROMOCODES_MENU:
-        from src.handlers.promocodes import promocodes_menu_keyboard
-        await _send_clean_message(target, _("promocodes.menu_title"), reply_markup=promocodes_menu_keyboard())
-        return
-    
     if destination == NavTarget.USER_MENU:
         from src.handlers.user_public import _get_user_menu_keyboard
         from src.utils.i18n import get_i18n
@@ -280,7 +270,7 @@ async def cb_nav_back(callback: CallbackQuery) -> None:
     await callback.answer()
     target = callback.data.split(":", 2)[2]
     # Для админских меню проверяем права, для пользовательских - нет
-    if target != NavTarget.USER_MENU and target != NavTarget.PROMOCODES_MENU:
+    if target != NavTarget.USER_MENU:
         if await _not_admin(callback):
             return
     await _navigate(callback, target)
@@ -347,22 +337,6 @@ async def cb_section_system(callback: CallbackQuery) -> None:
         return
     await callback.answer()
     await _navigate(callback, NavTarget.SYSTEM_MENU)
-
-@router.callback_query(F.data == "menu:section:bonuses")
-async def cb_section_bonuses(callback: CallbackQuery) -> None:
-    """Обработчик кнопки 'Плюшки' в главном меню - сразу открывает промокоды."""
-    if await _not_admin(callback):
-        return
-    await callback.answer()
-    await _navigate(callback, NavTarget.PROMOCODES_MENU)
-
-@router.callback_query(F.data == "menu:section:promocodes")
-async def cb_section_promocodes(callback: CallbackQuery) -> None:
-    """Обработчик кнопки 'Промокоды' в меню Плюшки."""
-    if await _not_admin(callback):
-        return
-    await callback.answer()
-    await _navigate(callback, NavTarget.PROMOCODES_MENU)
 
 
 @router.callback_query(F.data == "menu:subs")

@@ -26,8 +26,7 @@ def init_yookassa():
 async def create_yookassa_payment(
     user_id: int,
     subscription_months: int,
-    payment_method: str,  # "sbp" или "card"
-    promo_code: Optional[str] = None
+    payment_method: str  # "sbp" или "card"
 ) -> dict:
     """Создает платеж через YooKassa.
     
@@ -35,7 +34,6 @@ async def create_yookassa_payment(
         user_id: ID пользователя Telegram
         subscription_months: Количество месяцев подписки (1, 3, 6, 12)
         payment_method: Способ оплаты ("sbp" или "card")
-        promo_code: Промокод для скидки (опционально)
     
     Returns:
         Словарь с payment_id, payment_url и payment_db_id
@@ -57,28 +55,7 @@ async def create_yookassa_payment(
         raise ValueError(f"Invalid subscription months: {subscription_months}")
     
     base_amount = rub_prices[subscription_months]
-    
-    # Применяем промокод (если есть)
-    discount_percent = 0
-    discount_rub = 0
-    if promo_code:
-        from src.database import PromoCode
-        promo = PromoCode.get(promo_code)
-        if promo:
-            discount_percent = promo.get("discount_percent", 0) or 0
-            discount_rub = promo.get("discount_rub", 0) or 0
-    
-    # Вычисляем сумму с учетом скидки
-    if discount_rub > 0:
-        # Фиксированная скидка в рублях
-        amount_float = base_amount - discount_rub
-    elif discount_percent > 0:
-        # Процентная скидка
-        amount_float = base_amount * (1 - discount_percent / 100)
-    else:
-        amount_float = base_amount
-    
-    amount = max(1.0, amount_float)  # Минимум 1 рубль
+    amount = base_amount
     
     subscription_days = subscription_months * 30
     
@@ -96,9 +73,8 @@ async def create_yookassa_payment(
     payment_db_id = Payment.create(
         user_id=user_id,
         amount_rub=amount,
-        invoice_payload=f"yookassa:{user_id}:{subscription_months}:{payment_method}:{promo_code or ''}",
+        invoice_payload=f"yookassa:{user_id}:{subscription_months}:{payment_method}",
         subscription_days=subscription_days,
-        promo_code=promo_code,
         payment_method=payment_method
     )
     
@@ -135,7 +111,6 @@ async def create_yookassa_payment(
                 "user_id": str(user_id),
                 "subscription_months": str(subscription_months),
                 "payment_db_id": str(payment_db_id),
-                "promo_code": promo_code or ""
             }
         }
         
@@ -382,11 +357,9 @@ async def process_yookassa_payment(
     user_id = int(parts[1])
     subscription_months = int(parts[2])
     subscription_days = payment["subscription_days"]
-    promo_code = payment.get("promo_code")
-    
     # Используем логику из payment_service для создания/обновления пользователя
     # Но адаптируем под YooKassa - создаем временный payload
-    temp_payload = f"{user_id}:{subscription_months}:0:{promo_code or ''}"
+    temp_payload = f"{user_id}:{subscription_months}:0"
     
     # Временно обновляем invoice_payload для совместимости с process_successful_payment
     from src.database import get_db_connection

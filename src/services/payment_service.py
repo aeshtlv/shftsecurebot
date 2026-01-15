@@ -12,8 +12,7 @@ from src.utils.logger import logger
 async def create_subscription_invoice(
     bot: Bot,
     user_id: int,
-    subscription_months: int,
-    promo_code: str | None = None
+    subscription_months: int
 ) -> str:
     """Создает ссылку на оплату подписки через Telegram Stars.
     
@@ -21,7 +20,6 @@ async def create_subscription_invoice(
         bot: Экземпляр бота
         user_id: ID пользователя Telegram
         subscription_months: Количество месяцев подписки (1, 3, 6, 12)
-        promo_code: Промокод для скидки (опционально)
     
     Returns:
         Ссылка на оплату
@@ -44,31 +42,19 @@ async def create_subscription_invoice(
         raise ValueError(f"Invalid subscription months: {subscription_months}")
     
     base_stars = stars_prices[subscription_months]
-    
-    # Применяем промокод (если есть)
-    discount_percent = 0
-    if promo_code:
-        from src.database import PromoCode
-        promo = PromoCode.get(promo_code)
-        if promo:
-            discount_percent = promo.get("discount_percent", 0) or 0
-    
-    stars = int(base_stars * (1 - discount_percent / 100))
-    # Telegram не принимает нулевую сумму
-    stars = max(1, stars)
+    stars = base_stars
     subscription_days = subscription_months * 30
     
     # Создаем короткий payload для invoice (Telegram ограничивает длину)
     # Используем только необходимые данные
-    invoice_payload = f"{user_id}:{subscription_months}:{stars}:{promo_code or ''}"
+    invoice_payload = f"{user_id}:{subscription_months}:{stars}"
     
     # Создаем запись о платеже
     payment_id = Payment.create(
         user_id=user_id,
         stars=stars,
         invoice_payload=invoice_payload,
-        subscription_days=subscription_days,
-        promo_code=promo_code
+        subscription_days=subscription_days
     )
     
     # Описание подписки
@@ -100,13 +86,12 @@ async def create_subscription_invoice(
         return str(invoice_link)
     except Exception as e:
         logger.exception(
-            "Failed to create invoice for user %s: %s (payload=%r stars=%s months=%s promo=%r)",
+            "Failed to create invoice for user %s: %s (payload=%r stars=%s months=%s)",
             user_id,
             type(e).__name__,
             invoice_payload,
             stars,
             subscription_months,
-            promo_code,
         )
         # Обновляем статус платежа на failed
         Payment.update_status(payment_id, "failed")
@@ -130,7 +115,7 @@ async def process_successful_payment(
         Словарь с результатом (success, user_uuid, subscription_url, error)
     """
     try:
-        # Парсим короткий payload формата: user_id:months:stars:promo
+        # Парсим короткий payload формата: user_id:months:stars
         parts = invoice_payload.split(":")
         if len(parts) < 3:
             logger.error(f"Invalid payload format: {invoice_payload}")
@@ -139,7 +124,6 @@ async def process_successful_payment(
         payload_user_id = int(parts[0])
         subscription_months = int(parts[1])
         payload_stars = int(parts[2])
-        promo_code = parts[3] if len(parts) > 3 and parts[3] else None
         
         subscription_days = subscription_months * 30
         
@@ -360,32 +344,6 @@ async def process_successful_payment(
         # Обновляем статус платежа
         Payment.update_status(payment["id"], "completed", user_uuid)
         
-        # Применяем промокод (если есть)
-        promo_discount = 0
-        promo_bonus_days = 0
-        if promo_code:
-            from src.database import PromoCode
-            promo = PromoCode.get(promo_code)
-            if promo:
-                promo_discount = promo.get("discount_percent", 0) or 0
-                promo_bonus_days = promo.get("bonus_days", 0) or 0
-            PromoCode.use(promo_code, user_id)
-            
-            # Отправляем уведомление об использовании промокода
-            if bot:
-                from src.services.notification_service import notify_promo_usage
-                try:
-                    await notify_promo_usage(
-                        bot,
-                        user_id,
-                        username,
-                        promo_code,
-                        promo_discount,
-                        promo_bonus_days
-                    )
-                except Exception as notif_exc:
-                    logger.warning("Failed to send promo usage notification: %s", notif_exc)
-        
         # Начисляем бонус рефереру (если есть)
         from src.services.referral_service import grant_referral_bonus
         
@@ -416,7 +374,6 @@ async def process_successful_payment(
                     username,
                     subscription_months,
                     total_amount,
-                    promo_code,
                     user_uuid,
                     expire_date
                 )

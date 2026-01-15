@@ -17,12 +17,6 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def bonuses_menu_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура меню Плюшки (промокоды)."""
-    from src.handlers.promocodes import promocodes_menu_keyboard
-    return promocodes_menu_keyboard()
-
-
 def system_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -87,10 +81,3 @@ def bulk_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def bonuses_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=_("actions.menu_promocodes"), callback_data="menu:section:promocodes")],
-            nav_row(NavTarget.MAIN_MENU),
-        ]
-    )

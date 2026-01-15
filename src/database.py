@@ -1,4 +1,4 @@
-"""База данных для пользователей бота, промокодов и рефералов."""
+"""База данных для пользователей бота и рефералов."""
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -59,39 +59,6 @@ def init_database():
         except sqlite3.OperationalError:
             pass  # Колонка уже существует
         
-        # Таблица промокодов
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS promo_codes (
-                code TEXT PRIMARY KEY,
-                discount_percent INTEGER,
-                discount_rub REAL,
-                bonus_days INTEGER,
-                max_uses INTEGER,
-                current_uses INTEGER DEFAULT 0,
-                expires_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_active BOOLEAN DEFAULT 1
-            )
-        """)
-        
-        # Миграция: добавляем поле discount_rub, если его нет
-        try:
-            cursor.execute("ALTER TABLE promo_codes ADD COLUMN discount_rub REAL")
-        except sqlite3.OperationalError:
-            pass  # Колонка уже существует
-        
-        # Таблица использования промокодов
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS promo_code_usage (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                code TEXT,
-                user_id INTEGER,
-                used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (code) REFERENCES promo_codes(code),
-                FOREIGN KEY (user_id) REFERENCES bot_users(telegram_id)
-            )
-        """)
-        
         # Таблица рефералов
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS referrals (
@@ -117,7 +84,6 @@ def init_database():
                 remnawave_user_uuid TEXT,
                 invoice_payload TEXT,
                 subscription_days INTEGER,
-                promo_code TEXT,
                 payment_method TEXT DEFAULT 'stars',
                 yookassa_payment_id TEXT,
                 yookassa_payment_url TEXT,
@@ -258,133 +224,6 @@ class BotUser:
             return [dict(row) for row in rows]
 
 
-class PromoCode:
-    """Модель промокода."""
-    
-    @staticmethod
-    def create(
-        code: str,
-        discount_percent: Optional[int] = None,
-        discount_rub: Optional[float] = None,
-        bonus_days: Optional[int] = None,
-        max_uses: Optional[int] = None,
-        expires_at: Optional[datetime] = None
-    ):
-        """Создает промокод."""
-        with get_db_connection() as conn:
-            conn.execute("""
-                INSERT INTO promo_codes (code, discount_percent, discount_rub, bonus_days, max_uses, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (code.upper(), discount_percent, discount_rub, bonus_days, max_uses, expires_at))
-    
-    @staticmethod
-    def get(code: str) -> Optional[dict]:
-        """Получает промокод."""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM promo_codes WHERE code = ? AND is_active = 1",
-                (code.upper(),)
-            )
-            row = cursor.fetchone()
-            return dict(row) if row else None
-    
-    @staticmethod
-    def can_use(code: str) -> tuple[bool, Optional[str]]:
-        """Проверяет, можно ли использовать промокод."""
-        promo = PromoCode.get(code)
-        if not promo:
-            return False, "Промокод не найден"
-        
-        if promo.get("expires_at"):
-            expires = datetime.fromisoformat(promo["expires_at"])
-            if datetime.now() > expires:
-                return False, "Промокод истек"
-        
-        if promo.get("max_uses"):
-            if promo["current_uses"] >= promo["max_uses"]:
-                return False, "Промокод больше недействителен"
-        
-        return True, None
-    
-    @staticmethod
-    def use(code: str, user_id: int) -> bool:
-        """Использует промокод."""
-        can_use, error = PromoCode.can_use(code)
-        if not can_use:
-            return False
-        
-        with get_db_connection() as conn:
-            # Увеличиваем счетчик использования
-            conn.execute("""
-                UPDATE promo_codes 
-                SET current_uses = current_uses + 1 
-                WHERE code = ?
-            """, (code.upper(),))
-            
-            # Записываем использование
-            conn.execute("""
-                INSERT INTO promo_code_usage (code, user_id)
-                VALUES (?, ?)
-            """, (code.upper(), user_id))
-            
-        return True
-    
-    @staticmethod
-    def get_all() -> list[dict]:
-        """Получает все промокоды (для админки)."""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM promo_codes 
-                ORDER BY created_at DESC
-            """)
-            rows = cursor.fetchall()
-            return [dict(row) for row in rows]
-    
-    @staticmethod
-    def get_by_code(code: str) -> Optional[dict]:
-        """Получает промокод по коду (включая неактивные, для админки)."""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM promo_codes WHERE code = ?",
-                (code.upper(),)
-            )
-            row = cursor.fetchone()
-            return dict(row) if row else None
-    
-    @staticmethod
-    def set_active(code: str, is_active: bool) -> bool:
-        """Активирует или деактивирует промокод."""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE promo_codes 
-                SET is_active = ? 
-                WHERE code = ?
-            """, (1 if is_active else 0, code.upper()))
-            return cursor.rowcount > 0
-    
-    @staticmethod
-    def delete(code: str) -> bool:
-        """Удаляет промокод."""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM promo_codes WHERE code = ?", (code.upper(),))
-            return cursor.rowcount > 0
-    
-    @staticmethod
-    def get_usage_count(code: str) -> int:
-        """Получает количество использований промокода."""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT COUNT(*) FROM promo_code_usage WHERE code = ?
-            """, (code.upper(),))
-            return cursor.fetchone()[0]
-
-
 class Referral:
     """Модель реферальной программы."""
     
@@ -457,7 +296,6 @@ class Payment:
         amount_rub: int = 0,
         invoice_payload: str = "",
         subscription_days: int = 0,
-        promo_code: Optional[str] = None,
         remnawave_user_uuid: Optional[str] = None,
         payment_method: str = "stars",
         yookassa_payment_id: Optional[str] = None,
@@ -468,10 +306,10 @@ class Payment:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO payments (user_id, stars, amount_rub, remnawave_user_uuid, invoice_payload, 
-                                     subscription_days, promo_code, payment_method, yookassa_payment_id, yookassa_payment_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                     subscription_days, payment_method, yookassa_payment_id, yookassa_payment_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (user_id, stars, amount_rub, remnawave_user_uuid, invoice_payload, subscription_days, 
-                  promo_code, payment_method, yookassa_payment_id, yookassa_payment_url))
+                  payment_method, yookassa_payment_id, yookassa_payment_url))
             return cursor.lastrowid
     
     @staticmethod
