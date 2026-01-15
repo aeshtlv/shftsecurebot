@@ -1,0 +1,18 @@
+services:
+  bot:
+    build: .
+    # Или используйте готовый образ:
+    # image: ghcr.io/aeshtlv/shftsecurebot:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+    networks:
+      - remnawave-network
+    # Бот будет ждать, пока API будет доступен (но не блокирует старт, если API еще не готов)
+    # Повторные попытки подключения реализованы в коде бота
+
+networks:
+  remnawave-network:
+    external: true
