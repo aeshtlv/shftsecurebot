@@ -1316,7 +1316,8 @@ async def cb_referral(callback: CallbackQuery) -> None:
         
         await callback.message.edit_text(
             text,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+            parse_mode="HTML"
         )
 
 

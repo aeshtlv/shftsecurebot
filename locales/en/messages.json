@@ -667,7 +667,7 @@
     "promo_discount": "Discount",
     "promo_bonus_days": "Bonus days",
     "promo_error": "⚠️ Error applying promo code.",
-    "referral_info": "👥 <b>Referral program</b>\n\n🎁 For each friend: <b>+{bonus_per_friend} days</b>\n\n🔗 <b>Your referral link:</b>\n<code>{link}</code>\n\n📊 <b>Stats:</b>\n• Friends invited: <b>{count}</b>\n• Bonus days received: <b>{bonus_days}</b>",
+    "referral_info": "👥 Referral program\n\n🎁 For each friend: +{bonus_per_friend} days\n\n🔗 Your referral link:\n<code>{link}</code>\n\n📊 Stats:\n• Friends invited: {count}\n• Bonus days received: {bonus_days}",
     "copy_referral_link": "📋 Open link",
     "buy_info": "💳 Buy subscription\n\nPayment via Telegram Stars."
   },
