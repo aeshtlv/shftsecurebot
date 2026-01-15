@@ -145,15 +145,30 @@ async def create_yookassa_payment(
         payment = YooKassaPayment.create(payment_params)
         
         yookassa_payment_id = payment.id
-        yookassa_payment_url = payment.confirmation.confirmation_url if payment.confirmation else None
+        confirmation_type_returned = getattr(payment.confirmation, 'type', 'unknown') if payment.confirmation else None
+        
+        # Получаем URL в зависимости от типа confirmation
+        yookassa_payment_url = None
+        if payment.confirmation:
+            if hasattr(payment.confirmation, 'confirmation_url'):
+                # Для redirect типа
+                yookassa_payment_url = payment.confirmation.confirmation_url
+            elif hasattr(payment.confirmation, 'confirmation_data'):
+                # Для qr типа - URL может быть в confirmation_data или формируем из payment_id
+                confirmation_data = payment.confirmation.confirmation_data
+                if hasattr(confirmation_data, 'qr_data'):
+                    # QR-код уже есть в данных
+                    pass
+                # Формируем URL для кнопки "Оплатить"
+                yookassa_payment_url = f"https://yoomoney.ru/checkout/payments/v2/contract/sbp?orderId={yookassa_payment_id}"
         
         # Логируем полный ответ для отладки
         logger.debug(
-            "YooKassa payment response: id=%s, status=%s, confirmation_url=%s, confirmation_type=%s",
+            "YooKassa payment response: id=%s, status=%s, confirmation_type=%s, has_confirmation_data=%s",
             yookassa_payment_id,
             getattr(payment, 'status', 'unknown'),
-            yookassa_payment_url,
-            getattr(payment.confirmation, 'type', 'unknown') if payment.confirmation else None
+            confirmation_type_returned,
+            hasattr(payment.confirmation, 'confirmation_data') if payment.confirmation else False
         )
         
         # Для СБП с confirmation.type = "qr" пытаемся извлечь данные QR-кода
