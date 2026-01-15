@@ -258,8 +258,8 @@ async def _navigate(target: Message | CallbackQuery, destination: str) -> None:
         from src.utils.i18n import get_i18n
         user_id = _get_target_user_id(target)
         i18n = get_i18n()
-        _ = i18n.gettext
-        await _send_clean_message(target, _("user.welcome"), reply_markup=_get_user_menu_keyboard(user_id))
+        _user = i18n.gettext
+        await _send_clean_message(target, _user("user.welcome"), reply_markup=_get_user_menu_keyboard(user_id))
         return
 
     await _send_clean_message(target, _("bot.menu"), reply_markup=main_menu_keyboard())
