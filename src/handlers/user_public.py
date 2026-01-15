@@ -97,6 +97,9 @@ async def cmd_start(message: Message) -> None:
     # Устанавливаем локализацию
     i18n = get_i18n()
     with i18n.use_locale(locale):
+        # Инициализируем welcome_text по умолчанию
+        welcome_text = _("user.welcome")
+        
         # Проверяем, есть ли реферальный код
         args = message.text.split()[1:] if message.text and len(message.text.split()) > 1 else []
         
@@ -108,9 +111,8 @@ async def cmd_start(message: Message) -> None:
                     Referral.create(referrer_id, user_id)
                     welcome_text = _("user.welcome_with_referral")
             except (ValueError, IndexError):
-                welcome_text = _("user.welcome")
-        else:
-            welcome_text = _("user.welcome")
+                # welcome_text уже инициализирован выше
+                pass
         
         await message.answer(
             welcome_text,
@@ -1304,12 +1306,6 @@ async def cb_referral(callback: CallbackQuery) -> None:
         )
         
         keyboard = [
-            [
-                InlineKeyboardButton(
-                    text=_("user.copy_referral_link", locale=locale),
-                    url=referral_link
-                )
-            ],
             [
                 InlineKeyboardButton(
                     text=_("user_menu.back", locale=locale),
