@@ -244,16 +244,38 @@ async def process_successful_payment(
             # Подготавливаем сквады
             internal_squads = settings.default_internal_squads if settings.default_internal_squads else None
             
-            user_data = await api_client.create_user(
-                username=username,
-                expire_at=expire_date,
-                telegram_id=user_id,
-                external_squad_uuid=settings.default_external_squad_uuid,
-                active_internal_squads=internal_squads,
-            )
-            user_info = user_data.get("response", user_data)
-            user_uuid = user_info.get("uuid")
-            BotUser.set_remnawave_uuid(user_id, user_uuid)
+            try:
+                user_data = await api_client.create_user(
+                    username=username,
+                    expire_at=expire_date,
+                    telegram_id=user_id,
+                    external_squad_uuid=settings.default_external_squad_uuid,
+                    active_internal_squads=internal_squads,
+                )
+                user_info = user_data.get("response", user_data)
+                user_uuid = user_info.get("uuid")
+                BotUser.set_remnawave_uuid(user_id, user_uuid)
+            except Exception as create_error:
+                # Если пользователь уже существует (например, по username), находим его по telegram_id
+                error_str = str(create_error).lower()
+                if "already exists" in error_str or "username" in error_str:
+                    logger.warning("User creation failed (likely already exists), trying to find by telegram_id: %s", create_error)
+                    try:
+                        existing_user = await api_client.get_user_by_telegram_id(user_id)
+                        user_info = existing_user.get("response", existing_user)
+                        user_uuid = user_info.get("uuid")
+                        if user_uuid:
+                            logger.info("Found existing user by telegram_id: %s", user_uuid)
+                            BotUser.set_remnawave_uuid(user_id, user_uuid)
+                            # Обновляем дату окончания подписки
+                            await api_client.update_user(user_uuid, expire_at=expire_date)
+                        else:
+                            raise create_error
+                    except Exception as find_error:
+                        logger.error("Failed to find user by telegram_id: %s", find_error)
+                        raise create_error
+                else:
+                    raise
             # На всякий случай повторно применим сквады через update (если create их проигнорировал)
             if settings.default_external_squad_uuid or internal_squads:
                 try:
