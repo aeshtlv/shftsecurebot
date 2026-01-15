@@ -953,8 +953,13 @@ async def handle_promo_code(message: Message) -> None:
     from src.handlers.state import PENDING_INPUT
     from src.utils.auth import is_admin
     
+    # Пропускаем админов, которые создают промокоды (обрабатывается в promocodes.py)
     user_id = message.from_user.id
     if is_admin(user_id):
+        pending = PENDING_INPUT.get(user_id, {})
+        if isinstance(pending, dict) and pending.get("action") == "promo_create":
+            return
+        # Если админ не создает промокод, пропускаем, чтобы не мешать админским функциям
         return
     
     # Проверяем, ожидается ли ввод промокода для оплаты
