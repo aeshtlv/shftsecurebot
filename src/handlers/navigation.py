@@ -252,6 +252,15 @@ async def _navigate(target: Message | CallbackQuery, destination: str) -> None:
         from src.handlers.promocodes import promocodes_menu_keyboard
         await _send_clean_message(target, _("promocodes.menu_title"), reply_markup=promocodes_menu_keyboard())
         return
+    
+    if destination == NavTarget.USER_MENU:
+        from src.handlers.user_public import _get_user_menu_keyboard
+        from src.utils.i18n import get_i18n
+        user_id = _get_target_user_id(target)
+        i18n = get_i18n()
+        _ = i18n.gettext
+        await _send_clean_message(target, _("user.welcome"), reply_markup=_get_user_menu_keyboard(user_id))
+        return
 
     await _send_clean_message(target, _("bot.menu"), reply_markup=main_menu_keyboard())
 

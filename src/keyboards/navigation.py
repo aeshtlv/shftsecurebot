@@ -25,6 +25,7 @@ class NavTarget:
     SUBS_LIST = "subs_list"
     BONUSES_MENU = "bonuses_menu"
     PROMOCODES_MENU = "promocodes_menu"
+    USER_MENU = "user_menu"
 
 
 def nav_row(back_to: str | None = None) -> list[InlineKeyboardButton]:

@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from src.database import PromoCode
 from src.handlers.common import _not_admin, _send_clean_message
+from src.handlers.navigation import _navigate
 from src.handlers.state import PENDING_INPUT
 from src.keyboards.main_menu import main_menu_keyboard
 from src.keyboards.navigation import NavTarget, nav_row
@@ -35,7 +36,7 @@ def promocodes_menu_keyboard() -> InlineKeyboardMarkup:
                     callback_data="promo:list"
                 )
             ],
-            nav_row(NavTarget.MAIN_MENU),
+            nav_row(NavTarget.USER_MENU),
         ]
     )
 
@@ -336,7 +337,7 @@ async def cb_promo_create(callback: CallbackQuery) -> None:
             [
                 InlineKeyboardButton(
                     text=_("actions.cancel"),
-                    callback_data="nav:back:main_menu"
+                    callback_data="nav:back:user_menu"
                 )
             ],
         nav_row(NavTarget.MAIN_MENU)
@@ -427,7 +428,7 @@ async def handle_promo_create_code(message: Message) -> None:
             [
                 InlineKeyboardButton(
                     text=_("actions.cancel"),
-                    callback_data="nav:back:main_menu"
+                    callback_data="nav:back:user_menu"
                 )
             ],
         nav_row(NavTarget.MAIN_MENU)
@@ -577,7 +578,7 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
             [
                 InlineKeyboardButton(
                     text=_("actions.cancel"),
-                    callback_data="nav:back:main_menu"
+                    callback_data="nav:back:user_menu"
                 )
             ],
                 nav_row(NavTarget.MAIN_MENU)
@@ -595,7 +596,7 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
                 [
                     InlineKeyboardButton(
                         text=_("actions.cancel"),
-                        callback_data="nav:back:main_menu"
+                        callback_data="nav:back:user_menu"
                     )
                 ],
                 nav_row(NavTarget.MAIN_MENU)
@@ -619,7 +620,7 @@ async def _promo_create_next_step(message: Message, pending: dict) -> None:
             [
                 InlineKeyboardButton(
                     text=_("actions.cancel"),
-                    callback_data="nav:back:main_menu"
+                    callback_data="nav:back:user_menu"
                 )
             ],
             nav_row(NavTarget.MAIN_MENU)
@@ -741,7 +742,7 @@ async def cb_promo_create_type(callback: CallbackQuery) -> None:
             [
                 InlineKeyboardButton(
                     text=_("actions.cancel"),
-                    callback_data="nav:back:main_menu"
+                    callback_data="nav:back:user_menu"
                 )
             ],
         nav_row(NavTarget.MAIN_MENU)
@@ -854,7 +855,7 @@ async def cb_promo_skip_step(callback: CallbackQuery) -> None:
             [
                 InlineKeyboardButton(
                     text=_("actions.cancel"),
-                    callback_data="nav:back:main_menu"
+                    callback_data="nav:back:user_menu"
                 )
             ],
         nav_row(NavTarget.MAIN_MENU)
