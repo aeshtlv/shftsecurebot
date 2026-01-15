@@ -4,7 +4,7 @@ from typing import Optional
 
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.i18n import gettext as _
 
 from src.database import BotUser, Referral, Payment
@@ -1152,6 +1152,7 @@ async def cb_buy(callback: CallbackQuery) -> None:
     with i18n.use_locale(locale):
         # Получаем актуальные цены из настроек
         from src.config import get_settings
+        import os
         settings = get_settings()
         
         # Клавиатура с вариантами подписки и ценами
@@ -1188,10 +1189,47 @@ async def cb_buy(callback: CallbackQuery) -> None:
             ]
         ]
         
-        await callback.message.edit_text(
-            _("payment.choose_subscription"),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-        )
+        # Путь к изображению тарифов
+        tariffs_image_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "tariffs.png")
+        
+        # Пытаемся отправить с картинкой, если файл существует
+        if os.path.exists(tariffs_image_path):
+            try:
+                # Удаляем предыдущее сообщение и отправляем новое с фото
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                
+                photo = FSInputFile(tariffs_image_path)
+                await callback.message.answer_photo(
+                    photo=photo,
+                    caption=_("payment.choose_subscription"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send tariffs image: {e}")
+                # Fallback: отправляем текстовое сообщение
+                await callback.message.answer(
+                    _("payment.choose_subscription"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+        else:
+            # Если изображения нет, отправляем текстовое сообщение
+            try:
+                await callback.message.edit_text(
+                    _("payment.choose_subscription"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+            except Exception:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer(
+                    _("payment.choose_subscription"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
 
 
 @router.callback_query(F.data.startswith("buy:"))
