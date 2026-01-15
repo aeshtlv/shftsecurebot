@@ -1952,6 +1952,19 @@ async def cb_yookassa_pay(callback: CallbackQuery) -> None:
             )
 
 
+async def _safe_edit_or_send(callback: CallbackQuery, text: str, reply_markup=None):
+    """Безопасно редактирует сообщение или отправляет новое, если редактирование невозможно."""
+    try:
+        await callback.message.edit_text(text, reply_markup=reply_markup)
+    except Exception:
+        # Если не удалось отредактировать (например, это фото), удаляем и отправляем новое
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text, reply_markup=reply_markup)
+
+
 @router.callback_query(F.data.startswith("check_payment:"))
 async def cb_check_payment_status(callback: CallbackQuery) -> None:
     """Проверяет статус платежа YooKassa."""
@@ -1970,9 +1983,10 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
         if not payment:
             i18n = get_i18n()
             with i18n.use_locale(locale):
-                await callback.message.edit_text(
+                await _safe_edit_or_send(
+                    callback,
                     _("payment.payment_not_found"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardMarkup(inline_keyboard=[[
                         InlineKeyboardButton(
                             text=_("user_menu.back"),
                             callback_data="user:buy"
@@ -1985,9 +1999,10 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
         if payment["user_id"] != user_id:
             i18n = get_i18n()
             with i18n.use_locale(locale):
-                await callback.message.edit_text(
+                await _safe_edit_or_send(
+                    callback,
                     _("payment.unauthorized_payment"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardMarkup(inline_keyboard=[[
                         InlineKeyboardButton(
                             text=_("user_menu.back"),
                             callback_data="user:buy"
@@ -2012,9 +2027,10 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
                         callback_data="user:buy"
                     )])
                 
-                await callback.message.edit_text(
+                await _safe_edit_or_send(
+                    callback,
                     _("payment.already_completed"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    InlineKeyboardMarkup(inline_keyboard=buttons)
                 )
             return
         
@@ -2023,9 +2039,10 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
         if not yookassa_payment_id:
             i18n = get_i18n()
             with i18n.use_locale(locale):
-                await callback.message.edit_text(
+                await _safe_edit_or_send(
+                    callback,
                     _("payment.payment_not_found"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardMarkup(inline_keyboard=[[
                         InlineKeyboardButton(
                             text=_("user_menu.back"),
                             callback_data="user:buy"
@@ -2059,16 +2076,18 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
                             callback_data="user:my_access"
                         )])
                         
-                        await callback.message.edit_text(
+                        await _safe_edit_or_send(
+                            callback,
                             _("payment.success").format(
                                 expire_date=result.get("expire_date", "")[:10] if result.get("expire_date") else _("payment.unknown")
                             ),
-                            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                            InlineKeyboardMarkup(inline_keyboard=buttons)
                         )
                     else:
-                        await callback.message.edit_text(
+                        await _safe_edit_or_send(
+                            callback,
                             _("payment.error_processing"),
-                            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardMarkup(inline_keyboard=[[
                                 InlineKeyboardButton(
                                     text=_("payment.check_status"),
                                     callback_data=f"check_payment:{payment_db_id}"
@@ -2098,15 +2117,17 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
                         )
                     ])
                     
-                    await callback.message.edit_text(
+                    await _safe_edit_or_send(
+                        callback,
                         _("payment.pending_status").format(status=_("payment.status_pending")),
-                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                        InlineKeyboardMarkup(inline_keyboard=buttons)
                     )
                 elif status == "canceled":
                     # Платеж отменен
-                    await callback.message.edit_text(
+                    await _safe_edit_or_send(
+                        callback,
                         _("payment.canceled_status"),
-                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardMarkup(inline_keyboard=[[
                             InlineKeyboardButton(
                                 text=_("user_menu.back"),
                                 callback_data="user:buy"
@@ -2132,9 +2153,10 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
                         )
                     ])
                     
-                    await callback.message.edit_text(
+                    await _safe_edit_or_send(
+                        callback,
                         _("payment.unknown_status").format(status=status),
-                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                        InlineKeyboardMarkup(inline_keyboard=buttons)
                     )
         except Exception as e:
             logger.exception("Failed to check YooKassa payment status")
@@ -2157,17 +2179,19 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
                     )
                 ])
                 
-                await callback.message.edit_text(
+                await _safe_edit_or_send(
+                    callback,
                     _("payment.error_checking_status"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    InlineKeyboardMarkup(inline_keyboard=buttons)
                 )
     except (ValueError, IndexError) as e:
         logger.exception("Invalid check_payment callback")
         i18n = get_i18n()
         with i18n.use_locale(locale):
-            await callback.message.edit_text(
+            await _safe_edit_or_send(
+                callback,
                 _("payment.error_processing"),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(
                         text=_("user_menu.back"),
                         callback_data="user:buy"
@@ -2178,9 +2202,10 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
         logger.exception("Failed to check payment status")
         i18n = get_i18n()
         with i18n.use_locale(locale):
-            await callback.message.edit_text(
+            await _safe_edit_or_send(
+                callback,
                 _("payment.error_processing"),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(
                         text=_("user_menu.back"),
                         callback_data="user:buy"

@@ -125,12 +125,15 @@ async def create_yookassa_payment(
             }
         }
         
-        # Указываем payment_method_data для обоих методов
-        # По документации YooKassa для СБП нужно явно указывать type: "sbp"
-        if payment_method == "sbp":
-            payment_params["payment_method_data"] = {"type": "sbp"}
-        elif payment_method == "card":
+        # Указываем payment_method_data только для банковской карты
+        # Для СБП не указываем payment_method_data - если СБП не включен в настройках магазина,
+        # YooKassa вернет ошибку "Payment method is not available"
+        # Вместо этого, если пользователь выбрал СБП, но он недоступен, покажем страницу выбора способа оплаты
+        # Для карты явно указываем метод
+        if payment_method == "card":
             payment_params["payment_method_data"] = {"type": "bank_card"}
+        # Для СБП не указываем payment_method_data - пользователь выберет способ оплаты на странице YooKassa
+        # Если СБП включен в настройках магазина, он будет доступен для выбора
         
         logger.info(
             "Creating YooKassa payment: amount=%s RUB, method=%s, months=%s, user_id=%s, confirmation_type=%s",
@@ -193,6 +196,9 @@ async def create_yookassa_payment(
         
         # Пытаемся получить детали ответа от YooKassa
         response_text = None
+        error_code = None
+        error_description = None
+        
         if hasattr(e, 'response'):
             if hasattr(e.response, 'text'):
                 response_text = e.response.text
@@ -202,11 +208,67 @@ async def create_yookassa_payment(
                 except:
                     response_text = str(e.response.content)
         
+        # Пытаемся распарсить JSON ответ для получения кода и описания ошибки
         if response_text:
+            try:
+                import json
+                error_json = json.loads(response_text)
+                error_code = error_json.get("code")
+                error_description = error_json.get("description")
+            except:
+                pass
+            
             logger.error(
                 "YooKassa API error response: %s", response_text
             )
             error_details = f"{error_details}\nAPI Response: {response_text}"
+        
+        # Специальная обработка ошибки "Payment method is not available"
+        if error_code == "invalid_request" and error_description and "not available" in error_description.lower():
+            logger.warning(
+                "Payment method %s is not available for this YooKassa shop. "
+                "User needs to enable it in YooKassa merchant settings or use alternative payment method.",
+                payment_method
+            )
+            # Если это СБП и он недоступен, пробуем создать платеж без указания метода
+            # Пользователь сможет выбрать способ оплаты на странице YooKassa
+            if payment_method == "sbp":
+                logger.info("Retrying payment creation without payment_method_data for SBP")
+                try:
+                    # Убираем payment_method_data и создаем платеж заново
+                    # Пользователь выберет способ оплаты на странице YooKassa
+                    payment = YooKassaPayment.create(payment_params)
+                    
+                    yookassa_payment_id = payment.id
+                    yookassa_payment_url = payment.confirmation.confirmation_url if payment.confirmation else None
+                    
+                    if not yookassa_payment_url:
+                        raise ValueError("YooKassa did not return confirmation_url")
+                    
+                    qr_data = yookassa_payment_url
+                    
+                    # Обновляем запись в БД
+                    Payment.update_yookassa_payment(
+                        payment_db_id,
+                        yookassa_payment_id,
+                        yookassa_payment_url or ""
+                    )
+                    
+                    logger.info(
+                        "YooKassa payment created without payment_method_data: user_id=%s, payment_id=%s, amount=%s RUB",
+                        user_id, yookassa_payment_id, amount
+                    )
+                    
+                    return {
+                        "payment_id": yookassa_payment_id,
+                        "payment_url": yookassa_payment_url,
+                        "payment_db_id": payment_db_id,
+                        "amount": amount,
+                        "qr_data": qr_data or yookassa_payment_url
+                    }
+                except Exception as retry_error:
+                    logger.error("Retry without payment_method_data also failed: %s", retry_error)
+                    # Продолжаем с обычной обработкой ошибки
         
         logger.error(
             "Failed to create YooKassa payment for user %s: %s (%s)\nAmount: %s RUB, Method: %s, Payment DB ID: %s",
