@@ -125,12 +125,12 @@ async def create_yookassa_payment(
             }
         }
         
-        # Указываем payment_method_data только для банковской карты
-        # Для СБП не указываем - YooKassa сам вернет QR-код в confirmation_data при redirect
-        # Для карты явно указываем метод
-        if payment_method == "card":
+        # Указываем payment_method_data для обоих методов
+        # По документации YooKassa для СБП нужно явно указывать type: "sbp"
+        if payment_method == "sbp":
+            payment_params["payment_method_data"] = {"type": "sbp"}
+        elif payment_method == "card":
             payment_params["payment_method_data"] = {"type": "bank_card"}
-        # Для СБП не указываем payment_method_data - YooKassa автоматически вернет QR-код
         
         logger.info(
             "Creating YooKassa payment: amount=%s RUB, method=%s, months=%s, user_id=%s, confirmation_type=%s",
@@ -143,22 +143,29 @@ async def create_yookassa_payment(
         yookassa_payment_id = payment.id
         yookassa_payment_url = payment.confirmation.confirmation_url if payment.confirmation else None
         
-        # Для СБП создаем специальный URL для страницы с QR-кодом
-        # Формат: https://yoomoney.ru/checkout/payments/v2/contract/sbp?orderId={payment_id}
-        # Этот URL ведет на страницу YooKassa, где отображается QR-код для оплаты
-        if payment_method == "sbp":
-            sbp_url = f"https://yoomoney.ru/checkout/payments/v2/contract/sbp?orderId={yookassa_payment_id}"
-            # Используем этот URL для QR-кода (пользователь отсканирует QR на странице YooKassa)
-            qr_data = sbp_url
-            # Также обновляем payment_url на этот специальный URL
-            yookassa_payment_url = sbp_url
-            logger.info("Created SBP URL with QR page: %s", sbp_url)
-        elif payment_method == "card":
-            # Для карты используем обычный URL и генерируем QR из него
-            qr_data = yookassa_payment_url if yookassa_payment_url else None
-        else:
-            # Для других методов используем URL платежа
-            qr_data = yookassa_payment_url if yookassa_payment_url else None
+        # Логируем полный ответ для отладки
+        logger.debug(
+            "YooKassa payment response: id=%s, status=%s, confirmation_url=%s, confirmation_type=%s",
+            yookassa_payment_id,
+            getattr(payment, 'status', 'unknown'),
+            yookassa_payment_url,
+            getattr(payment.confirmation, 'type', 'unknown') if payment.confirmation else None
+        )
+        
+        # Используем confirmation_url из ответа YooKassa
+        # YooKassa сам вернет правильный URL для СБП с QR-кодом на странице
+        if not yookassa_payment_url:
+            raise ValueError("YooKassa did not return confirmation_url")
+        
+        # Для QR-кода используем confirmation_url - на странице YooKassa будет QR-код для СБП
+        # Для карты тоже используем URL (можно сгенерировать QR из него)
+        qr_data = yookassa_payment_url
+        
+        logger.info(
+            "YooKassa payment URL: %s (method=%s)",
+            yookassa_payment_url[:80] + "..." if len(yookassa_payment_url) > 80 else yookassa_payment_url,
+            payment_method
+        )
         
         # Обновляем запись в БД с информацией о платеже YooKassa
         Payment.update_yookassa_payment(
