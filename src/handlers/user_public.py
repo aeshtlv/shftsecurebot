@@ -62,12 +62,18 @@ def _get_user_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
             )
         ]
     ]
-    # 4️⃣ Админка — только для админа, отдельно
+    # 4️⃣ Админка и Плюшки — только для админа, отдельно
     if is_admin(user_id):
         buttons.append([
             InlineKeyboardButton(
                 text=_("user_menu.admin_panel"),
                 callback_data="admin:panel",
+            )
+        ])
+        buttons.append([
+            InlineKeyboardButton(
+                text=_("actions.menu_bonuses"),
+                callback_data="user:bonuses",
             )
         ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -118,6 +124,22 @@ async def cmd_start(message: Message) -> None:
             welcome_text,
             reply_markup=_get_user_menu_keyboard(user_id)
         )
+
+
+@router.callback_query(F.data == "user:bonuses")
+async def cb_user_bonuses(callback: CallbackQuery) -> None:
+    """Открывает меню Плюшки (промокоды) для админов."""
+    from src.utils.auth import is_admin
+    from src.handlers.promocodes import promocodes_menu_keyboard
+    from src.keyboards.navigation import NavTarget
+    from src.handlers.navigation import _navigate
+
+    await callback.answer()
+    if not is_admin(callback.from_user.id):
+        await callback.answer(_("errors.unauthorized"), show_alert=True)
+        return
+
+    await _navigate(callback, NavTarget.PROMOCODES_MENU)
 
 
 @router.callback_query(F.data == "admin:panel")
