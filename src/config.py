@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     )
     trial_days: int = Field(3, alias="TRIAL_DAYS")  # Дней пробной подписки
     referral_bonus_days: int = Field(3, alias="REFERRAL_BONUS_DAYS")  # Бонусных дней за реферала
+    # Настройки для YooKassa
+    yookassa_shop_id: str | None = Field(default=None, alias="YOOKASSA_SHOP_ID")
+    yookassa_secret_key: str | None = Field(default=None, alias="YOOKASSA_SECRET_KEY")
+    # Цены в рублях для YooKassa (СБП и банковские карты)
+    subscription_rub_1month: int = Field(default=500, alias="SUBSCRIPTION_RUB_1MONTH")
+    subscription_rub_3months: int = Field(default=1200, alias="SUBSCRIPTION_RUB_3MONTHS")
+    subscription_rub_6months: int = Field(default=2200, alias="SUBSCRIPTION_RUB_6MONTHS")
+    subscription_rub_12months: int = Field(default=4000, alias="SUBSCRIPTION_RUB_12MONTHS")
     # Дефолтные сквады для новых пользователей
     default_external_squad_uuid: str | None = Field(default=None, alias="DEFAULT_EXTERNAL_SQUAD_UUID")
     # Важно: pydantic-settings пытается парсить list[str] из env как JSON, поэтому храним сырой строкой

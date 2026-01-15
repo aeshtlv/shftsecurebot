@@ -682,6 +682,7 @@
     "subscription_6months": "📅 6 months",
     "subscription_12months": "📅 12 months",
     "promo_code_prompt": "💳 Purchase subscription\n\n📅 Period: {months_text}\n💰 Price: {stars} ⭐\n\n🎫 Want to enter a promo code for a discount?",
+    "promo_code_prompt_yookassa": "💳 Purchase subscription\n\n📅 Period: {months_text}\n💰 Amount: {amount} ₽\n\n🎫 Want to enter a promo code for a discount?",
     "method_coming_soon": "🚧 {method}\n\n📅 Period: {months_text}\n\n⚙️ Integration in development. Coming soon!",
     "enter_promo_code": "🎫 Enter promo code",
     "enter_promo_code_text": "🎫 Enter promo code\n\nSend the promo code as a text message (letters and numbers only, 3-20 characters).\n\nSubscription: {months_text}",
@@ -697,7 +698,17 @@
     "error": "❌ Payment processing error\n\n{error}",
     "error_processing": "An error occurred while processing the payment.",
     "contact_support": "Please contact support if the payment was deducted.",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "yookassa_invoice_created": "💳 Invoice created\n\n📅 Period: {months_text}\n💰 Amount: {amount} ₽\n\nClick the button below to proceed with payment.",
+    "check_status": "🔄 Check status",
+    "payment_not_found": "❌ Payment not found.",
+    "unauthorized_payment": "❌ You don't have access to this payment.",
+    "already_completed": "✅ Payment already processed. Your subscription is active.",
+    "pending_status": "⏳ Payment processing\n\nStatus: {status}\n\nYou can check the status later or continue payment.",
+    "status_pending": "Awaiting payment",
+    "canceled_status": "❌ Payment canceled.\n\nYou can create a new order.",
+    "unknown_status": "❓ Unknown payment status: {status}\n\nTry checking the status later or contact support.",
+    "error_checking_status": "❌ Error checking payment status.\n\nTry again later or contact support."
   },
   "renewal": {
     "expiring_soon": "⏰ Access expires in {days} days\n\nClick the button below to renew access without losing settings.",

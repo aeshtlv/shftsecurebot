@@ -990,21 +990,70 @@ async def handle_promo_code(message: Message) -> None:
             )
             return
         
-        # Промокод валиден - применяем его и создаем invoice (только для Stars, другие методы пока не поддерживаются)
-        if payment_method != "stars":
-            # Для других методов оплаты показываем заглушку
-            await message.answer(
-                _("payment.method_coming_soon").format(
-                    method=_("payment.payment_method_sbp") if payment_method == "sbp" else _("payment.payment_method_card"),
-                    months_text=_get_months_text(subscription_months, locale)
-                ),
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text=_("user_menu.back"),
-                        callback_data=f"payment:{subscription_months}:{payment_method}"
-                    )
-                ]])
-            )
+        # Промокод валиден - применяем его и создаем invoice
+        if payment_method in ("sbp", "card"):
+            # Создаем платеж через YooKassa с промокодом
+            from src.services.yookassa_service import create_yookassa_payment
+            
+            try:
+                payment_data = await create_yookassa_payment(
+                    user_id=user_id,
+                    subscription_months=subscription_months,
+                    payment_method=payment_method,
+                    promo_code=promo_code
+                )
+                
+                payment_url = payment_data["payment_url"]
+                payment_db_id = payment_data["payment_db_id"]
+                amount = payment_data["amount"]
+                
+                promo = PromoCode.get(promo_code)
+                promo_text = ""
+                if promo:
+                    if promo.get("discount_percent"):
+                        promo_text = f"\n\n🎫 {_('user.promo_applied')}: {promo['discount_percent']}% {_('user.promo_discount')}"
+                    elif promo.get("bonus_days"):
+                        promo_text = f"\n\n🎫 {_('user.promo_applied')}: +{promo['bonus_days']} {_('user.promo_bonus_days')}"
+                
+                buttons = [
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.pay_button"),
+                            url=payment_url
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.check_status"),
+                            callback_data=f"check_payment:{payment_db_id}"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data=f"buy:{subscription_months}"
+                        )
+                    ]
+                ]
+                
+                await message.answer(
+                    _("payment.yookassa_invoice_created").format(
+                        months_text=_get_months_text(subscription_months, locale),
+                        amount=amount
+                    ) + promo_text,
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+            except Exception as e:
+                logger.exception("Failed to create YooKassa payment with promo code")
+                await message.answer(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data=f"payment:{subscription_months}:{payment_method}"
+                        )
+                    ]])
+                )
             return
         
         from src.services.payment_service import create_subscription_invoice
@@ -1614,33 +1663,47 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                     ),
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
                 )
-            elif payment_method == "sbp":
-                # Для СБП - заглушка, потом интегрируем YooKassa
-                await callback.message.edit_text(
-                    _("payment.method_coming_soon").format(
-                        method=_("payment.payment_method_sbp"),
-                        months_text=_get_months_text(subscription_months, locale)
-                    ),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            elif payment_method in ("sbp", "card"):
+                # Показываем промокод или создаем платеж через YooKassa
+                from src.config import get_settings
+                settings = get_settings()
+                
+                # Получаем цену для выбранного периода
+                rub_prices = {
+                    1: settings.subscription_rub_1month,
+                    3: settings.subscription_rub_3months,
+                    6: settings.subscription_rub_6months,
+                    12: settings.subscription_rub_12months,
+                }
+                amount = rub_prices.get(subscription_months, 0)
+                
+                buttons = [
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.enter_promo_code"),
+                            callback_data=f"promo_input:{subscription_months}:{payment_method}"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.skip_promo_code"),
+                            callback_data=f"yookassa_pay:{subscription_months}:{payment_method}:skip"
+                        )
+                    ],
+                    [
                         InlineKeyboardButton(
                             text=_("user_menu.back"),
                             callback_data=f"buy:{subscription_months}"
                         )
-                    ]])
-                )
-            elif payment_method == "card":
-                # Для банковской карты - заглушка, потом интегрируем YooKassa
+                    ]
+                ]
+                
                 await callback.message.edit_text(
-                    _("payment.method_coming_soon").format(
-                        method=_("payment.payment_method_card"),
-                        months_text=_get_months_text(subscription_months, locale)
+                    _("payment.promo_code_prompt_yookassa").format(
+                        months_text=_get_months_text(subscription_months, locale),
+                        amount=amount
                     ),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                        InlineKeyboardButton(
-                            text=_("user_menu.back"),
-                            callback_data=f"buy:{subscription_months}"
-                        )
-                    ]])
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
                 )
     except (ValueError, IndexError) as e:
         logger.exception("Invalid payment method callback")
@@ -1661,6 +1724,339 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
         with i18n.use_locale(locale):
             await callback.message.edit_text(
                 _("payment.error_creating_invoice"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:buy"
+                    )
+                ]])
+            )
+
+
+@router.callback_query(F.data.startswith("yookassa_pay:"))
+async def cb_yookassa_pay(callback: CallbackQuery) -> None:
+    """Создает платеж YooKassa без промокода."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    try:
+        # Формат: yookassa_pay:months:method:skip
+        parts = callback.data.split(":")
+        subscription_months = int(parts[1])
+        payment_method = parts[2]
+        
+        i18n = get_i18n()
+        with i18n.use_locale(locale):
+            try:
+                from src.services.yookassa_service import create_yookassa_payment
+                
+                payment_data = await create_yookassa_payment(
+                    user_id=user_id,
+                    subscription_months=subscription_months,
+                    payment_method=payment_method
+                )
+                
+                payment_url = payment_data["payment_url"]
+                payment_db_id = payment_data["payment_db_id"]
+                amount = payment_data["amount"]
+                
+                buttons = [
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.pay_button"),
+                            url=payment_url
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.check_status"),
+                            callback_data=f"check_payment:{payment_db_id}"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data=f"buy:{subscription_months}"
+                        )
+                    ]
+                ]
+                
+                await callback.message.edit_text(
+                    _("payment.yookassa_invoice_created").format(
+                        months_text=_get_months_text(subscription_months, locale),
+                        amount=amount
+                    ),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+            except Exception as e:
+                logger.exception("Failed to create YooKassa payment")
+                await callback.message.edit_text(
+                    _("payment.error_creating_invoice"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data=f"buy:{subscription_months}"
+                        )
+                    ]])
+                )
+    except (ValueError, IndexError) as e:
+        logger.exception("Invalid yookassa_pay callback")
+        i18n = get_i18n()
+        with i18n.use_locale(locale):
+            await callback.message.edit_text(
+                _("payment.error_creating_invoice"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:buy"
+                    )
+                ]])
+            )
+    except Exception as e:
+        logger.exception("Failed to process yookassa_pay")
+        i18n = get_i18n()
+        with i18n.use_locale(locale):
+            await callback.message.edit_text(
+                _("payment.error_creating_invoice"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:buy"
+                    )
+                ]])
+            )
+
+
+@router.callback_query(F.data.startswith("check_payment:"))
+async def cb_check_payment_status(callback: CallbackQuery) -> None:
+    """Проверяет статус платежа YooKassa."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    try:
+        # Формат: check_payment:payment_db_id
+        parts = callback.data.split(":")
+        payment_db_id = int(parts[1])
+        
+        # Получаем платеж из БД
+        payment = Payment.get(payment_db_id)
+        if not payment:
+            i18n = get_i18n()
+            with i18n.use_locale(locale):
+                await callback.message.edit_text(
+                    _("payment.payment_not_found"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="user:buy"
+                        )
+                    ]])
+                )
+            return
+        
+        # Проверяем, что платеж принадлежит пользователю
+        if payment["user_id"] != user_id:
+            i18n = get_i18n()
+            with i18n.use_locale(locale):
+                await callback.message.edit_text(
+                    _("payment.unauthorized_payment"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="user:buy"
+                        )
+                    ]])
+                )
+            return
+        
+        # Если платеж уже обработан
+        if payment["status"] == "completed":
+            i18n = get_i18n()
+            with i18n.use_locale(locale):
+                buttons = []
+                if payment.get("remnawave_user_uuid"):
+                    buttons.append([InlineKeyboardButton(
+                        text=_("user_menu.my_access"),
+                        callback_data="user:my_access"
+                    )])
+                else:
+                    buttons.append([InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:buy"
+                    )])
+                
+                await callback.message.edit_text(
+                    _("payment.already_completed"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+            return
+        
+        # Проверяем статус в YooKassa
+        yookassa_payment_id = payment.get("yookassa_payment_id")
+        if not yookassa_payment_id:
+            i18n = get_i18n()
+            with i18n.use_locale(locale):
+                await callback.message.edit_text(
+                    _("payment.payment_not_found"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="user:buy"
+                        )
+                    ]])
+                )
+            return
+        
+        from src.services.yookassa_service import check_yookassa_payment_status, process_yookassa_payment
+        
+        try:
+            yookassa_status = await check_yookassa_payment_status(yookassa_payment_id)
+            status = yookassa_status["status"]
+            paid = yookassa_status.get("paid", False)
+            
+            i18n = get_i18n()
+            with i18n.use_locale(locale):
+                if status == "succeeded" and paid:
+                    # Платеж успешен - обрабатываем его
+                    result = await process_yookassa_payment(yookassa_payment_id, callback.message.bot)
+                    
+                    if result.get("success"):
+                        buttons = []
+                        if result.get("subscription_url"):
+                            buttons.append([InlineKeyboardButton(
+                                text=_("user.get_config"),
+                                url=result["subscription_url"]
+                            )])
+                        buttons.append([InlineKeyboardButton(
+                            text=_("user_menu.my_access"),
+                            callback_data="user:my_access"
+                        )])
+                        
+                        await callback.message.edit_text(
+                            _("payment.success").format(
+                                expire_date=result.get("expire_date", "")[:10] if result.get("expire_date") else _("payment.unknown")
+                            ),
+                            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                        )
+                    else:
+                        await callback.message.edit_text(
+                            _("payment.error_processing"),
+                            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                                InlineKeyboardButton(
+                                    text=_("payment.check_status"),
+                                    callback_data=f"check_payment:{payment_db_id}"
+                                ),
+                                InlineKeyboardButton(
+                                    text=_("user_menu.back"),
+                                    callback_data="user:buy"
+                                )
+                            ]])
+                        )
+                elif status == "pending" or status == "waiting_for_capture":
+                    # Платеж в обработке
+                    buttons = []
+                    if payment.get("yookassa_payment_url"):
+                        buttons.append([InlineKeyboardButton(
+                            text=_("payment.pay_button"),
+                            url=payment["yookassa_payment_url"]
+                        )])
+                    buttons.append([
+                        InlineKeyboardButton(
+                            text=_("payment.check_status"),
+                            callback_data=f"check_payment:{payment_db_id}"
+                        ),
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="user:buy"
+                        )
+                    ])
+                    
+                    await callback.message.edit_text(
+                        _("payment.pending_status").format(status=_("payment.status_pending")),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
+                elif status == "canceled":
+                    # Платеж отменен
+                    await callback.message.edit_text(
+                        _("payment.canceled_status"),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(
+                                text=_("user_menu.back"),
+                                callback_data="user:buy"
+                            )
+                        ]])
+                    )
+                else:
+                    # Неизвестный статус
+                    buttons = []
+                    if payment.get("yookassa_payment_url"):
+                        buttons.append([InlineKeyboardButton(
+                            text=_("payment.pay_button"),
+                            url=payment["yookassa_payment_url"]
+                        )])
+                    buttons.append([
+                        InlineKeyboardButton(
+                            text=_("payment.check_status"),
+                            callback_data=f"check_payment:{payment_db_id}"
+                        ),
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="user:buy"
+                        )
+                    ])
+                    
+                    await callback.message.edit_text(
+                        _("payment.unknown_status").format(status=status),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
+        except Exception as e:
+            logger.exception("Failed to check YooKassa payment status")
+            i18n = get_i18n()
+            with i18n.use_locale(locale):
+                buttons = []
+                if payment.get("yookassa_payment_url"):
+                    buttons.append([InlineKeyboardButton(
+                        text=_("payment.pay_button"),
+                        url=payment["yookassa_payment_url"]
+                    )])
+                buttons.append([
+                    InlineKeyboardButton(
+                        text=_("payment.check_status"),
+                        callback_data=f"check_payment:{payment_db_id}"
+                    ),
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:buy"
+                    )
+                ])
+                
+                await callback.message.edit_text(
+                    _("payment.error_checking_status"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+    except (ValueError, IndexError) as e:
+        logger.exception("Invalid check_payment callback")
+        i18n = get_i18n()
+        with i18n.use_locale(locale):
+            await callback.message.edit_text(
+                _("payment.error_processing"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:buy"
+                    )
+                ]])
+            )
+    except Exception as e:
+        logger.exception("Failed to check payment status")
+        i18n = get_i18n()
+        with i18n.use_locale(locale):
+            await callback.message.edit_text(
+                _("payment.error_processing"),
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(
                         text=_("user_menu.back"),
