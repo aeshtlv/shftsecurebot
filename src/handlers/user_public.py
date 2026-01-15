@@ -1021,13 +1021,20 @@ async def handle_promo_code(message: Message) -> None:
                     elif promo.get("bonus_days"):
                         promo_text = f"\n\n🎫 {_('user.promo_applied')}: +{promo['bonus_days']} {_('user.promo_bonus_days')}"
                 
-                # Формируем текст сообщения
+                # Формируем текст сообщения в зависимости от метода оплаты
                 yookassa_payment_id = payment_data.get("payment_id", "")
-                payment_text = _("payment.yookassa_invoice_created_with_qr").format(
-                    months_text=_get_months_text(subscription_months, locale),
-                    amount=amount,
-                    payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
-                ) + promo_text
+                if payment_method == "sbp":
+                    payment_text = _("payment.yookassa_invoice_created_with_qr").format(
+                        months_text=_get_months_text(subscription_months, locale),
+                        amount=amount,
+                        payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                    ) + promo_text
+                else:  # card
+                    payment_text = _("payment.yookassa_invoice_created_card").format(
+                        months_text=_get_months_text(subscription_months, locale),
+                        amount=amount,
+                        payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                    ) + promo_text
                 
                 buttons = [
                     [
@@ -1777,17 +1784,24 @@ async def cb_yookassa_pay(callback: CallbackQuery) -> None:
                 qr_data = payment_data.get("qr_data", payment_url)
                 yookassa_payment_id = payment_data.get("payment_id", "")
                 
-                # Генерируем QR-код
+                # Для СБП показываем QR-код, для карты тоже (из URL)
                 from src.services.yookassa_service import generate_qr_code_image
                 qr_image = generate_qr_code_image(qr_data)
                 qr_file = BufferedInputFile(qr_image.read(), filename="qr_code.png")
                 
-                # Формируем текст сообщения
-                payment_text = _("payment.yookassa_invoice_created_with_qr").format(
-                    months_text=_get_months_text(subscription_months, locale),
-                    amount=amount,
-                    payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
-                )
+                # Формируем текст сообщения в зависимости от метода оплаты
+                if payment_method == "sbp":
+                    payment_text = _("payment.yookassa_invoice_created_with_qr").format(
+                        months_text=_get_months_text(subscription_months, locale),
+                        amount=amount,
+                        payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                    )
+                else:  # card
+                    payment_text = _("payment.yookassa_invoice_created_card").format(
+                        months_text=_get_months_text(subscription_months, locale),
+                        amount=amount,
+                        payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                    )
                 
                 buttons = [
                     [
