@@ -1327,14 +1327,14 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
         with i18n.use_locale(locale):
             if payment_method == "stars":
                 # Для Telegram Stars сразу создаем invoice
-                from src.services.payment_service import create_subscription_invoice
-                
-                invoice_link = await create_subscription_invoice(
-                    bot=callback.message.bot,
-                    user_id=user_id,
+            from src.services.payment_service import create_subscription_invoice
+            
+            invoice_link = await create_subscription_invoice(
+                bot=callback.message.bot,
+                user_id=user_id,
                     subscription_months=subscription_months
-                )
-                
+            )
+            
                 buttons = [
                     [
                         InlineKeyboardButton(
@@ -1351,10 +1351,10 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                 ]
                 
                 try:
-                    await callback.message.edit_text(
-                        _("payment.invoice_created"),
-                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-                    )
+                await callback.message.edit_text(
+                    _("payment.invoice_created"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
                 except Exception:
                     try:
                         await callback.message.delete()
@@ -1369,8 +1369,8 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                 from src.services.yookassa_service import create_yookassa_payment
                 
                 payment_data = await create_yookassa_payment(
-                    user_id=user_id,
-                    subscription_months=subscription_months,
+                user_id=user_id,
+                subscription_months=subscription_months,
                     payment_method=payment_method
                 )
                 
@@ -1432,8 +1432,8 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                 )
     except (ValueError, IndexError) as e:
         logger.exception("Invalid payment method callback")
-            i18n = get_i18n()
-            with i18n.use_locale(locale):
+        i18n = get_i18n()
+        with i18n.use_locale(locale):
             error_markup = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
                     text=_("user_menu.back"),
