@@ -20,6 +20,5 @@ RUN pip install --prefer-binary --no-cache-dir -r requirements.txt
 
 COPY src ./src
 COPY locales ./locales
-COPY assets ./assets
 
 CMD ["python", "-m", "src.main"]
