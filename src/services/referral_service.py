@@ -79,9 +79,18 @@ async def grant_referral_bonus(referred_user_id: int) -> dict | None:
             return None
         
         # Продлеваем подписку на bonus_days
-        current_dt = datetime.fromisoformat(current_expire.replace("Z", "+00:00"))
+        # Обрабатываем формат даты (может быть с Z или без)
+        expire_str = current_expire.replace("Z", "")
+        if "+" in expire_str:
+            # Уже есть timezone
+            current_dt = datetime.fromisoformat(expire_str)
+        else:
+            # Нет timezone, добавляем UTC
+            current_dt = datetime.fromisoformat(expire_str + "+00:00")
+        
         new_expire = current_dt + timedelta(days=bonus_days)
-        new_expire_iso = new_expire.replace(microsecond=0).isoformat() + "Z"
+        # Форматируем дату в ISO формате с Z (без timezone offset)
+        new_expire_iso = new_expire.replace(microsecond=0).replace(tzinfo=None).isoformat() + "Z"
         
         # Обновляем expireAt в Remnawave
         await api_client.update_user(referrer_uuid, expireAt=new_expire_iso)
