@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from aiogram import Router
+from aiogram.filters import F
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.database import PromoCode
