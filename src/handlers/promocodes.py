@@ -475,7 +475,7 @@ async def handle_promo_create_number(message: Message) -> None:
         return
 
 
-@router.message()
+@router.message(F.text & ~F.text.startswith("/"))
 async def handle_promo_create_date(message: Message) -> None:
     """Обработка ввода даты при создании промокода."""
     from src.utils.auth import is_admin

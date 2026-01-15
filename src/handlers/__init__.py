@@ -20,10 +20,10 @@ def register_handlers(dp: Dispatcher) -> None:
     # Регистрируем роутеры в порядке приоритета
     # Сначала обработчики платежей (специфичные типы сообщений)
     dp.include_router(payments_router)
-    # Затем админские роутеры (promocodes должен обрабатываться раньше user_public для админов)
-    dp.include_router(promocodes_router)
-    # Затем публичные пользовательские роутеры (они должны обрабатываться первыми)
+    # Затем публичные пользовательские роутеры (команды /start и т.д. должны обрабатываться первыми)
     dp.include_router(user_public_router)
+    # Затем админские роутеры (promocodes обрабатывается после user_public, но проверяет админов внутри)
+    dp.include_router(promocodes_router)
     # Затем общие роутеры (commands, navigation), затем доменные
     dp.include_router(commands_router)
     dp.include_router(navigation_router)
