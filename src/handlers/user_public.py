@@ -2192,6 +2192,197 @@ async def cb_gift_pay(callback: CallbackQuery) -> None:
                 )
 
 
+@router.callback_query(F.data.startswith("check_gift_payment:"))
+async def cb_check_gift_payment_status(callback: CallbackQuery) -> None:
+    """Проверяет статус подарочного платежа YooKassa."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    try:
+        payment_db_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        return
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        # Получаем платеж из БД
+        payment = Payment.get(payment_db_id)
+        
+        if not payment:
+            await _safe_edit_or_send(
+                callback,
+                _("payment.payment_not_found"),
+                InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="gift:buy"
+                    )
+                ]])
+            )
+            return
+        
+        # Проверяем, что это платеж этого пользователя
+        if payment["user_id"] != user_id:
+            await _safe_edit_or_send(
+                callback,
+                _("payment.unauthorized_payment"),
+                InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="gift:buy"
+                    )
+                ]])
+            )
+            return
+        
+        # Если платеж уже завершен
+        if payment["status"] == "completed":
+            await _safe_edit_or_send(
+                callback,
+                _("payment.already_completed"),
+                InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("gift.my_gifts"),
+                        callback_data="gift:my"
+                    )
+                ]])
+            )
+            return
+        
+        # Проверяем статус в YooKassa
+        yookassa_payment_id = payment.get("yookassa_payment_id")
+        if not yookassa_payment_id:
+            await _safe_edit_or_send(
+                callback,
+                _("payment.error_checking_status"),
+                InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="gift:buy"
+                    )
+                ]])
+            )
+            return
+        
+        try:
+            from src.services.yookassa_service import check_yookassa_payment_status, process_yookassa_gift_payment
+            
+            yookassa_status = await check_yookassa_payment_status(yookassa_payment_id)
+            status = yookassa_status.get("status")
+            
+            if status == "succeeded" and yookassa_status.get("paid"):
+                # Обрабатываем успешный платеж
+                result = await process_yookassa_gift_payment(yookassa_payment_id, callback.message.bot)
+                
+                if result.get("success"):
+                    gift_code = result.get("gift_code", "")
+                    subscription_days = result.get("subscription_days", 0)
+                    
+                    text = _("gift.success").format(
+                        code=gift_code,
+                        days=subscription_days
+                    )
+                    
+                    from src.config import get_settings
+                    settings = get_settings()
+                    bot_username = settings.bot_username or "shftsecure_bot"
+                    
+                    buttons = [
+                        [
+                            InlineKeyboardButton(
+                                text=_("gift.my_gifts"),
+                                callback_data="gift:my"
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=_("user_menu.back"),
+                                callback_data="user:menu"
+                            )
+                        ]
+                    ]
+                    
+                    await _safe_edit_or_send(
+                        callback,
+                        text,
+                        InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
+                else:
+                    await _safe_edit_or_send(
+                        callback,
+                        _("gift.error_creating"),
+                        InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(
+                                text=_("user_menu.back"),
+                                callback_data="gift:buy"
+                            )
+                        ]])
+                    )
+            elif status == "canceled":
+                await _safe_edit_or_send(
+                    callback,
+                    _("payment.canceled_status"),
+                    InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="gift:buy"
+                        )
+                    ]])
+                )
+            else:
+                # Платеж ещё в обработке
+                buttons = []
+                if payment.get("yookassa_payment_url"):
+                    buttons.append([InlineKeyboardButton(
+                        text=_("payment.pay_button"),
+                        url=payment["yookassa_payment_url"]
+                    )])
+                buttons.append([
+                    InlineKeyboardButton(
+                        text=_("payment.check_status"),
+                        callback_data=f"check_gift_payment:{payment_db_id}"
+                    )
+                ])
+                buttons.append([
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="gift:buy"
+                    )
+                ])
+                
+                await _safe_edit_or_send(
+                    callback,
+                    _("payment.pending_status").format(status=_("payment.status_pending")),
+                    InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+        except Exception as e:
+            logger.exception("Failed to check YooKassa gift payment status")
+            buttons = []
+            if payment.get("yookassa_payment_url"):
+                buttons.append([InlineKeyboardButton(
+                    text=_("payment.pay_button"),
+                    url=payment["yookassa_payment_url"]
+                )])
+            buttons.append([
+                InlineKeyboardButton(
+                    text=_("payment.check_status"),
+                    callback_data=f"check_gift_payment:{payment_db_id}"
+                ),
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="gift:buy"
+                )
+            ])
+            
+            await _safe_edit_or_send(
+                callback,
+                _("payment.error_checking_status"),
+                InlineKeyboardMarkup(inline_keyboard=buttons)
+            )
+
+
 @router.callback_query(F.data == "gift:my")
 async def cb_gift_my(callback: CallbackQuery) -> None:
     """Показать мои подарочные коды."""
