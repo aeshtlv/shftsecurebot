@@ -1607,17 +1607,17 @@ async def cb_yookassa_pay(callback: CallbackQuery) -> None:
             )
 
 
-async def _safe_edit_or_send(callback: CallbackQuery, text: str, reply_markup=None):
+async def _safe_edit_or_send(callback: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "HTML"):
     """Безопасно редактирует сообщение или отправляет новое, если редактирование невозможно."""
     try:
-        await callback.message.edit_text(text, reply_markup=reply_markup)
+        await callback.message.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
     except Exception:
         # Если не удалось отредактировать (например, это фото), удаляем и отправляем новое
         try:
             await callback.message.delete()
         except Exception:
             pass
-        await callback.message.answer(text, reply_markup=reply_markup)
+        await callback.message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
 
 
 @router.callback_query(F.data.startswith("check_payment:"))
