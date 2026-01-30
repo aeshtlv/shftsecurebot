@@ -494,6 +494,18 @@ async def cb_support(callback: CallbackQuery) -> None:
         )
 
 
+def _make_progress_bar(current: int, target: int, length: int = 10) -> str:
+    """Создаёт текстовый прогресс-бар."""
+    if target <= 0:
+        return "▓" * length
+    
+    progress = min(current / target, 1.0)
+    filled = int(progress * length)
+    empty = length - filled
+    
+    return "▓" * filled + "░" * empty
+
+
 @router.callback_query(F.data == "user:profile")
 async def cb_profile(callback: CallbackQuery) -> None:
     """Обработчик 'Мой профиль' — показывает статус лояльности."""
@@ -509,37 +521,58 @@ async def cb_profile(callback: CallbackQuery) -> None:
     with i18n.use_locale(locale):
         profile = get_loyalty_profile(user_id)
         
-        # Формируем текст профиля
-        text = f"<b>{_('loyalty.profile_title')}</b>\n\n"
-        text += f"{_('loyalty.status').format(status_name=profile['status_name'])}\n"
-        text += f"{_('loyalty.points').format(points=profile['points'])}\n"
-        text += f"{_('loyalty.total_spent').format(total_spent=profile['total_spent'])}\n\n"
+        # Эмодзи для статусов
+        status_emoji = {
+            'bronze': '🥉',
+            'silver': '🥈', 
+            'gold': '🥇',
+            'platinum': '💎'
+        }
+        
+        current_emoji = status_emoji.get(profile['status'], '🥉')
+        
+        # Заголовок с текущим статусом
+        text = f"{current_emoji} <b>{profile['status_name']}</b>\n"
+        text += "━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        # Прогресс до следующего уровня
+        if profile['next_status_info']:
+            next_info = profile['next_status_info']
+            next_emoji = status_emoji.get(next_info['next_status'], '🥈')
+            
+            # Вычисляем прогресс
+            current_threshold = Loyalty.THRESHOLDS.get(profile['status'], 0)
+            next_threshold = Loyalty.THRESHOLDS.get(next_info['next_status'], 0)
+            progress_in_level = profile['points'] - current_threshold
+            level_size = next_threshold - current_threshold
+            
+            bar = _make_progress_bar(progress_in_level, level_size, 10)
+            percent = int((progress_in_level / level_size) * 100) if level_size > 0 else 0
+            
+            text += f"📊 <b>Прогресс до {next_emoji} {next_info['next_status'].capitalize()}</b>\n"
+            text += f"<code>{bar}</code> {percent}%\n"
+            text += f"<i>{profile['points']} / {next_threshold} баллов</i>\n\n"
+        else:
+            text += "🌟 <b>Максимальный статус достигнут!</b>\n\n"
+        
+        # Статистика
+        text += f"💰 Баллов: <b>{profile['points']}</b>\n"
+        text += f"💳 Потрачено: <b>{profile['total_spent']}₽</b>\n\n"
         
         # Текущие скидки
         if profile['current_discounts']:
-            text += f"<b>{_('loyalty.current_discounts')}</b>\n"
+            text += "🎁 <b>Ваши скидки:</b>\n"
             for d in profile['current_discounts']:
                 period_key = f"period_{d['days']}d"
                 period_name = _(period_key)
-                text += f"   • {period_name}: <s>{d['base_price']}₽</s> → <b>{d['final_price']}₽</b> (-{d['discount']}₽)\n"
+                text += f"   • {period_name}: <b>{d['final_price']}₽</b> <s>{d['base_price']}₽</s>\n"
         else:
-            text += f"<i>{_('loyalty.no_discounts')}</i>\n"
-        
-        text += "\n"
-        
-        # Следующий статус
-        if profile['next_status_info']:
-            text += _('loyalty.next_status').format(
-                next_status=profile['next_status_info']['next_status_name'],
-                points_needed=profile['next_status_info']['points_needed']
-            )
-        else:
-            text += _('loyalty.max_status')
+            text += "💡 <i>Скидки доступны с уровня Silver</i>\n"
         
         buttons = [
             [
                 InlineKeyboardButton(
-                    text=_("loyalty.how_it_works"),
+                    text="ℹ️ Как это работает",
                     callback_data="user:profile:howto"
                 )
             ],
