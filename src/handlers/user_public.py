@@ -2570,12 +2570,25 @@ async def msg_activate_gift_code(message: Message) -> None:
             
             # Создаем нового пользователя в Remnawave
             from datetime import datetime, timedelta
+            from src.config import get_settings
+            settings = get_settings()
+            
             expire_date = (datetime.now() + timedelta(days=subscription_days)).replace(microsecond=0).isoformat() + "Z"
             
+            # Формируем красивое имя пользователя
+            base_username = (message.from_user.username or "").lstrip("@")
+            if not base_username:
+                base_username = f"user{user_id}"
+            
+            # Подготавливаем сквады
+            internal_squads = settings.default_internal_squads if settings.default_internal_squads else None
+            
             result = await api_client.create_user(
-                username=f"gift_{user_id}_{int(datetime.now().timestamp())}",
+                username=base_username,
                 expire_at=expire_date,
-                telegram_id=user_id
+                telegram_id=user_id,
+                external_squad_uuid=settings.default_external_squad_uuid,
+                active_internal_squads=internal_squads,
             )
             
             result_data = result.get("response", result) if result else {}
@@ -2583,6 +2596,19 @@ async def msg_activate_gift_code(message: Message) -> None:
                 new_uuid = result_data["uuid"]
                 BotUser.set_remnawave_uuid(user_id, new_uuid)
                 GiftCode.activate(code, user_id, new_uuid)
+                
+                # На всякий случай применяем сквады через update
+                if settings.default_external_squad_uuid or internal_squads:
+                    try:
+                        update_payload = {}
+                        if settings.default_external_squad_uuid:
+                            update_payload["externalSquadUuid"] = settings.default_external_squad_uuid
+                        if internal_squads:
+                            update_payload["activeInternalSquads"] = internal_squads
+                        if update_payload:
+                            await api_client.update_user(new_uuid, **update_payload)
+                    except Exception as squad_exc:
+                        logger.warning("Failed to apply squads on gift user %s: %s", new_uuid, squad_exc)
                 
                 await message.answer(
                     _("gift.activation_success").format(expire_date=expire_date[:10]),
