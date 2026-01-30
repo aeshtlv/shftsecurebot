@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, P
 from aiogram.utils.i18n import gettext as _
 
 from src.database import BotUser, Payment
-from src.services.payment_service import process_successful_payment
+from src.services.payment_service import process_successful_gift_payment, process_successful_payment
 from src.utils.i18n import get_i18n
 from src.utils.logger import logger
 
@@ -74,7 +74,90 @@ async def process_successful_payment_message(message: Message) -> None:
     i18n = get_i18n()
     with i18n.use_locale(locale):
         try:
-            # Обрабатываем платеж
+            # Проверяем, это подарочный платеж или обычный
+            if invoice_payload.startswith("gift:"):
+                # Обрабатываем подарочный платеж
+                result = await process_successful_gift_payment(
+                    user_id=user_id,
+                    invoice_payload=invoice_payload,
+                    total_amount=total_amount,
+                    bot=message.bot
+                )
+                
+                if result.get("success"):
+                    if result.get("already_completed"):
+                        buttons = [[
+                            InlineKeyboardButton(
+                                text=_("gift.my_gifts"),
+                                callback_data="gift:my"
+                            )
+                        ]]
+                        await message.answer(
+                            _("payment.already_processed"),
+                            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+                            parse_mode="HTML"
+                        )
+                        return
+                    else:
+                        gift_code = result.get("gift_code", "")
+                        subscription_days = result.get("subscription_days", 0)
+                        
+                        text = _("gift.success").format(
+                            code=gift_code,
+                            days=subscription_days
+                        )
+                        
+                        # Кнопки: поделиться подарком и посмотреть свои подарки
+                        from src.config import get_settings
+                        settings = get_settings()
+                        bot_username = settings.bot_username or "shftsecure_bot"
+                        share_text = _("gift.share_text").format(
+                            code=gift_code,
+                            bot_link=f"https://t.me/{bot_username}"
+                        )
+                        
+                        buttons = [
+                            [
+                                InlineKeyboardButton(
+                                    text=_("gift.share_gift"),
+                                    switch_inline_query=share_text
+                                )
+                            ],
+                            [
+                                InlineKeyboardButton(
+                                    text=_("gift.my_gifts"),
+                                    callback_data="gift:my"
+                                )
+                            ],
+                            [
+                                InlineKeyboardButton(
+                                    text=_("user_menu.back"),
+                                    callback_data="user:menu"
+                                )
+                            ]
+                        ]
+                        
+                        await message.answer(
+                            text,
+                            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+                            parse_mode="HTML"
+                        )
+                        return
+                else:
+                    error = result.get("error", _("gift.error_creating"))
+                    await message.answer(
+                        _("gift.error_creating"),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(
+                                text=_("user_menu.back"),
+                                callback_data="user:gift"
+                            )
+                        ]]),
+                        parse_mode="HTML"
+                    )
+                    return
+            
+            # Обычный платеж за подписку
             result = await process_successful_payment(
                 user_id=user_id,
                 invoice_payload=invoice_payload,

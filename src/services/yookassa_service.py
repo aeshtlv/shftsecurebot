@@ -437,3 +437,237 @@ def generate_qr_code_image(data: str) -> io.BytesIO:
     
     return img_bytes
 
+
+async def create_yookassa_gift_payment(
+    user_id: int,
+    subscription_months: int,
+    payment_method: str  # "sbp" или "card"
+) -> dict:
+    """Создает платеж через YooKassa для подарочной подписки.
+    
+    Args:
+        user_id: ID покупателя (Telegram)
+        subscription_months: Количество месяцев подписки (1, 3, 6, 12)
+        payment_method: Способ оплаты ("sbp" или "card")
+    
+    Returns:
+        Словарь с payment_id, payment_url и payment_db_id
+    """
+    if not init_yookassa():
+        raise ValueError("YooKassa not configured")
+    
+    settings = get_settings()
+    
+    # Получаем цену в рублях
+    rub_prices = {
+        1: settings.subscription_rub_1month,
+        3: settings.subscription_rub_3months,
+        6: settings.subscription_rub_6months,
+        12: settings.subscription_rub_12months,
+    }
+    
+    if subscription_months not in rub_prices:
+        raise ValueError(f"Invalid subscription months: {subscription_months}")
+    
+    amount = rub_prices[subscription_months]
+    subscription_days = subscription_months * 30
+    
+    # Описание подарка
+    locale_map = {
+        1: ("1 месяц", "1 month"),
+        3: ("3 месяца", "3 months"),
+        6: ("6 месяцев", "6 months"),
+        12: ("12 месяцев", "12 months"),
+    }
+    description_ru, description_en = locale_map[subscription_months]
+    description = f"🎁 Подарок shftsecure {description_ru} | Gift shftsecure {description_en}"
+    
+    # Создаем запись о платеже в БД с пометкой gift
+    payment_db_id = Payment.create(
+        user_id=user_id,
+        amount_rub=amount,
+        invoice_payload=f"yookassa_gift:{user_id}:{subscription_months}:{payment_method}",
+        subscription_days=subscription_days,
+        payment_method=payment_method
+    )
+    
+    # Настройки платежа
+    if payment_method == "sbp":
+        confirmation_type = "qr"
+    else:
+        confirmation_type = "redirect"
+    
+    try:
+        amount_str = f"{float(amount):.2f}"
+        
+        payment_params = {
+            "amount": {
+                "value": amount_str,
+                "currency": "RUB"
+            },
+            "confirmation": {
+                "type": confirmation_type,
+                "return_url": settings.yookassa_return_url or "https://t.me/shftsecure_bot"
+            },
+            "capture": True,
+            "description": description[:128],
+            "metadata": {
+                "user_id": str(user_id),
+                "subscription_months": str(subscription_months),
+                "payment_db_id": str(payment_db_id),
+                "is_gift": "true"
+            }
+        }
+        
+        if payment_method == "sbp":
+            payment_params["payment_method_data"] = {
+                "type": "sbp"
+            }
+        
+        yookassa_payment = YooKassaPayment.create(payment_params)
+        
+        yookassa_payment_id = yookassa_payment.id
+        confirmation = yookassa_payment.confirmation
+        yookassa_payment_url = ""
+        qr_data = None
+        
+        if confirmation:
+            if hasattr(confirmation, 'confirmation_url') and confirmation.confirmation_url:
+                yookassa_payment_url = confirmation.confirmation_url
+            if hasattr(confirmation, 'confirmation_data') and confirmation.confirmation_data:
+                qr_data = confirmation.confirmation_data
+        
+        if payment_method == "sbp":
+            if not qr_data:
+                sbp_url = f"https://yoomoney.ru/checkout/payments/v2/contract/sbp?orderId={yookassa_payment_id}"
+                qr_data = sbp_url
+                yookassa_payment_url = sbp_url
+            else:
+                if not yookassa_payment_url:
+                    yookassa_payment_url = f"https://yoomoney.ru/checkout/payments/v2/contract/sbp?orderId={yookassa_payment_id}"
+        elif payment_method == "card":
+            if not yookassa_payment_url:
+                raise ValueError("YooKassa did not return confirmation_url")
+            qr_data = yookassa_payment_url
+        else:
+            if not yookassa_payment_url:
+                raise ValueError("YooKassa did not return confirmation_url")
+            qr_data = yookassa_payment_url
+        
+        Payment.update_yookassa_payment(
+            payment_db_id,
+            yookassa_payment_id,
+            yookassa_payment_url or ""
+        )
+        
+        logger.info(
+            "YooKassa gift payment created: user_id=%s, payment_id=%s, amount=%s RUB, method=%s",
+            user_id, yookassa_payment_id, amount, payment_method
+        )
+        
+        return {
+            "payment_id": yookassa_payment_id,
+            "payment_url": yookassa_payment_url,
+            "payment_db_id": payment_db_id,
+            "amount": amount,
+            "qr_data": qr_data or yookassa_payment_url
+        }
+    except Exception as e:
+        logger.exception(
+            "Failed to create YooKassa gift payment for user %s: %s",
+            user_id, e
+        )
+        Payment.update_status(payment_db_id, "failed")
+        raise
+
+
+async def process_yookassa_gift_payment(
+    payment_id: str,
+    bot=None
+) -> dict:
+    """Обрабатывает успешный подарочный платеж YooKassa.
+    
+    Args:
+        payment_id: ID платежа в YooKassa
+        bot: Экземпляр бота для уведомлений
+    
+    Returns:
+        Словарь с результатом обработки
+    """
+    from src.database import GiftCode
+    
+    # Находим платеж в БД
+    payment = Payment.get_by_yookassa_id(payment_id)
+    if not payment:
+        logger.error(f"Gift payment not found for YooKassa ID: {payment_id}")
+        return {"success": False, "error": "Payment not found"}
+    
+    if payment["status"] == "completed":
+        logger.warning(f"Gift payment {payment['id']} already completed")
+        return {"success": True, "already_completed": True}
+    
+    # Проверяем статус в YooKassa
+    try:
+        yookassa_status = await check_yookassa_payment_status(payment_id)
+    except Exception as e:
+        logger.exception("Failed to check YooKassa gift payment status")
+        return {"success": False, "error": str(e)}
+    
+    if yookassa_status["status"] != "succeeded" or not yookassa_status["paid"]:
+        return {
+            "success": False,
+            "error": f"Payment not completed. Status: {yookassa_status['status']}"
+        }
+    
+    # Парсим invoice_payload: yookassa_gift:user_id:months:method
+    invoice_payload = payment["invoice_payload"]
+    parts = invoice_payload.split(":")
+    if len(parts) < 4 or parts[0] != "yookassa_gift":
+        logger.error(f"Invalid gift invoice_payload format: {invoice_payload}")
+        return {"success": False, "error": "Invalid payload format"}
+    
+    user_id = int(parts[1])
+    subscription_months = int(parts[2])
+    payment_method = parts[3]
+    subscription_days = payment["subscription_days"]
+    amount_rub = payment["amount_rub"]
+    
+    # Создаем подарочный код
+    gift = GiftCode.create(
+        buyer_id=user_id,
+        subscription_days=subscription_days,
+        amount_rub=amount_rub,
+        payment_method=payment_method
+    )
+    
+    if not gift:
+        logger.error("Failed to create gift code for YooKassa payment")
+        Payment.update_status(payment["id"], "failed")
+        return {"success": False, "error": "Failed to create gift code"}
+    
+    # Обновляем статус платежа
+    Payment.update_status(payment["id"], "completed")
+    
+    logger.info(f"YooKassa gift code created: {gift['code']} for user {user_id}")
+    
+    # Отправляем уведомление админам
+    if bot:
+        from src.services.notification_service import send_admin_notification
+        try:
+            await send_admin_notification(
+                bot,
+                f"🎁 <b>Подарочная подписка (YooKassa)</b>\n\n"
+                f"👤 Покупатель: <code>{user_id}</code>\n"
+                f"🎫 Код: <code>{gift['code']}</code>\n"
+                f"📅 Срок: {subscription_days} дней\n"
+                f"💰 Сумма: {amount_rub} ₽"
+            )
+        except Exception as notif_exc:
+            logger.warning("Failed to send gift notification: %s", notif_exc)
+    
+    return {
+        "success": True,
+        "gift_code": gift["code"],
+        "subscription_days": subscription_days
+    }
+

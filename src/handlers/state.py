@@ -20,9 +20,31 @@ USER_DETAIL_BACK_TARGET: dict[int, str] = {}
 # Ключ: user_id, Значение: номер страницы (int)
 SUBS_PAGE_BY_USER: dict[int, int] = {}
 
+# Словарь для хранения состояния пользователя (например, ожидание ввода кода)
+# Ключ: user_id, Значение: строка состояния
+USER_STATE: dict[int, str] = {}
+
+# Константы состояний
+GIFT_ACTIVATE_STATE = "gift_activate"
+
 # Константы
 ADMIN_COMMAND_DELETE_DELAY = 2.0
 SEARCH_PAGE_SIZE = 100
 MAX_SEARCH_RESULTS = 10
 SUBS_PAGE_SIZE = 8
+
+
+def set_user_state(user_id: int, state: str) -> None:
+    """Устанавливает состояние для пользователя."""
+    USER_STATE[user_id] = state
+
+
+def get_user_state(user_id: int) -> str | None:
+    """Получает текущее состояние пользователя."""
+    return USER_STATE.get(user_id)
+
+
+def clear_user_state(user_id: int) -> None:
+    """Очищает состояние пользователя."""
+    USER_STATE.pop(user_id, None)
 

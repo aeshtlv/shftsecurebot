@@ -708,5 +708,31 @@
     "invoice_created": "💳 Renewal invoice created\n\nClick the button below to pay for subscription renewal via Telegram Stars.",
     "error_creating_invoice": "❌ Error creating renewal invoice. Please try again later.",
     "resume_access": "⚠️ Access suspended\n\nYour subscription has expired. Select a subscription to resume access:"
+  },
+  "gift": {
+    "menu_button": "🎁 Gift subscription",
+    "activate_button": "🎫 Activate code",
+    "title": "🎁 Gift subscription\n\nYou can buy a subscription as a gift for a friend.\n\nAfter payment you will receive a unique code that you can send to the recipient.",
+    "choose_period": "🎁 Choose gift subscription period:",
+    "choose_payment_method": "💳 Choose payment method for gift:",
+    "payment_processing": "⏳ Processing payment...",
+    "success": "🎉 Gift code created!\n\n🎫 Your code:\n<code>{code}</code>\n\n📅 Subscription period: {days} days\n\n📋 Send this code to your friend.\nThey can activate it in the bot.",
+    "copy_code": "📋 Copy code",
+    "share_gift": "📤 Share",
+    "share_text": "🎁 I'm giving you a shftsecure subscription!\n\nCode: {code}\n\nActivate it in the bot: {bot_link}",
+    "my_gifts": "📦 My gifts",
+    "my_gifts_title": "📦 Your gift codes",
+    "my_gifts_empty": "You don't have any gift codes yet.",
+    "gift_item_active": "🟢 {code}\n   📅 {days} days • Created: {created}",
+    "gift_item_used": "✅ {code}\n   📅 {days} days • Activated: {activated}",
+    "activate_title": "🎫 Activate gift code\n\nEnter the code you received:",
+    "activate_prompt": "Enter code in format: GIFT-XXXX-XXXX",
+    "invalid_code_format": "⚠️ Invalid code format.\n\nCode must be in format: GIFT-XXXX-XXXX",
+    "code_not_found": "❌ Code not found.\n\nCheck the code and try again.",
+    "code_already_used": "⚠️ This code has already been activated.",
+    "activation_success": "🎉 Code successfully activated!\n\n📅 Your subscription is active until: {expire_date}\n\nYou can now use the service.",
+    "activation_failed": "❌ Failed to activate code.\n\nPlease try again later or contact support.",
+    "cannot_activate_own": "⚠️ You cannot activate your own code.",
+    "error_creating": "❌ Error creating gift code. Please try again later."
   }
 }

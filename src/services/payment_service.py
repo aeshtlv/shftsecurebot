@@ -5,8 +5,20 @@ from aiogram import Bot
 from aiogram.types import LabeledPrice
 
 from src.config import get_settings
-from src.database import Payment
+from src.database import GiftCode, Payment
 from src.utils.logger import logger
+
+
+def get_stars_amount(subscription_months: int) -> int:
+    """Получить стоимость подписки в Stars."""
+    settings = get_settings()
+    stars_prices = {
+        1: settings.subscription_stars_1month,
+        3: settings.subscription_stars_3months,
+        6: settings.subscription_stars_6months,
+        12: settings.subscription_stars_12months,
+    }
+    return stars_prices.get(subscription_months, 0)
 
 
 async def create_subscription_invoice(
@@ -390,6 +402,170 @@ async def process_successful_payment(
         }
     except Exception as e:
         logger.exception(f"Failed to process payment for user {user_id}: {e}")
+        payment = Payment.get_by_payload(invoice_payload)
+        if payment:
+            Payment.update_status(payment["id"], "failed")
+        return {"success": False, "error": str(e)}
+
+
+async def create_gift_invoice(
+    bot: Bot,
+    user_id: int,
+    subscription_months: int
+) -> str:
+    """Создает ссылку на оплату подарочной подписки через Telegram Stars.
+    
+    Args:
+        bot: Экземпляр бота
+        user_id: ID пользователя Telegram (покупатель подарка)
+        subscription_months: Количество месяцев подписки (1, 3, 6, 12)
+    
+    Returns:
+        Ссылка на оплату
+    """
+    settings = get_settings()
+    
+    stars = get_stars_amount(subscription_months)
+    if not stars:
+        raise ValueError(f"Invalid subscription months: {subscription_months}")
+    
+    subscription_days = subscription_months * 30
+    
+    # Создаем payload для подарка: gift:user_id:months:stars
+    invoice_payload = f"gift:{user_id}:{subscription_months}:{stars}"
+    
+    # Создаем запись о платеже
+    payment_id = Payment.create(
+        user_id=user_id,
+        stars=stars,
+        invoice_payload=invoice_payload,
+        subscription_days=subscription_days,
+        payment_method="stars"
+    )
+    
+    # Описание подарка
+    locale_map = {
+        1: ("1 месяц", "1 month"),
+        3: ("3 месяца", "3 months"),
+        6: ("6 месяцев", "6 months"),
+        12: ("12 месяцев", "12 months"),
+    }
+    
+    description_ru, description_en = locale_map[subscription_months]
+    description = f"🎁 Подарок shftsecure {description_ru} | Gift shftsecure {description_en}"
+    price_label = f"Gift {subscription_months}m"
+    
+    try:
+        invoice_link = await bot.create_invoice_link(
+            title=f"🎁 shftsecure {description_ru}",
+            description=description,
+            payload=invoice_payload,
+            provider_token=None,
+            currency="XTR",
+            prices=[LabeledPrice(label=price_label, amount=stars)],
+        )
+        
+        logger.info(f"Gift invoice created for user {user_id}: {payment_id}, {stars} stars")
+        return str(invoice_link)
+    except Exception as e:
+        logger.exception(
+            "Failed to create gift invoice for user %s: %s",
+            user_id, type(e).__name__
+        )
+        Payment.update_status(payment_id, "failed")
+        raise
+
+
+async def process_successful_gift_payment(
+    user_id: int,
+    invoice_payload: str,
+    total_amount: int,
+    bot: Bot | None = None
+) -> dict:
+    """Обрабатывает успешную оплату подарочной подписки.
+    
+    Args:
+        user_id: ID покупателя
+        invoice_payload: Payload из invoice (gift:user_id:months:stars)
+        total_amount: Сумма в Stars
+    
+    Returns:
+        Словарь с результатом (success, gift_code, error)
+    """
+    try:
+        # Парсим payload: gift:user_id:months:stars
+        parts = invoice_payload.split(":")
+        if len(parts) < 4 or parts[0] != "gift":
+            logger.error(f"Invalid gift payload format: {invoice_payload}")
+            return {"success": False, "error": "Invalid payload format"}
+        
+        payload_user_id = int(parts[1])
+        subscription_months = int(parts[2])
+        payload_stars = int(parts[3])
+        
+        subscription_days = subscription_months * 30
+        
+        # Проверяем user_id
+        if payload_user_id != user_id:
+            logger.error(f"User ID mismatch: payload={payload_user_id}, actual={user_id}")
+            return {"success": False, "error": "User ID mismatch"}
+        
+        # Находим платеж в БД
+        payment = Payment.get_by_payload(invoice_payload)
+        if not payment:
+            logger.error(f"Payment not found for payload: {invoice_payload}")
+            return {"success": False, "error": "Payment not found"}
+        
+        if payment["status"] == "completed":
+            logger.warning(f"Gift payment {payment['id']} already completed")
+            return {"success": True, "already_completed": True}
+        
+        # Проверяем сумму
+        if abs(payment["stars"] - total_amount) > 1:
+            logger.error(f"Amount mismatch: expected {payment['stars']}, got {total_amount}")
+            Payment.update_status(payment["id"], "failed")
+            return {"success": False, "error": "Amount mismatch"}
+        
+        # Создаем подарочный код
+        gift = GiftCode.create(
+            buyer_id=user_id,
+            subscription_days=subscription_days,
+            stars=total_amount,
+            payment_method="stars"
+        )
+        
+        if not gift:
+            logger.error("Failed to create gift code")
+            Payment.update_status(payment["id"], "failed")
+            return {"success": False, "error": "Failed to create gift code"}
+        
+        # Обновляем статус платежа
+        Payment.update_status(payment["id"], "completed")
+        
+        logger.info(f"Gift code created: {gift['code']} for user {user_id}")
+        
+        # Отправляем уведомление админам
+        if bot:
+            from src.services.notification_service import send_admin_notification
+            try:
+                await send_admin_notification(
+                    bot,
+                    f"🎁 <b>Подарочная подписка</b>\n\n"
+                    f"👤 Покупатель: <code>{user_id}</code>\n"
+                    f"🎫 Код: <code>{gift['code']}</code>\n"
+                    f"📅 Срок: {subscription_days} дней\n"
+                    f"⭐ Сумма: {total_amount} Stars"
+                )
+            except Exception as notif_exc:
+                logger.warning("Failed to send gift notification: %s", notif_exc)
+        
+        return {
+            "success": True,
+            "gift_code": gift["code"],
+            "subscription_days": subscription_days
+        }
+    except Exception as e:
+        logger.exception(f"Failed to process gift payment: {e}")
         payment = Payment.get_by_payload(invoice_payload)
         if payment:
             Payment.update_status(payment["id"], "failed")

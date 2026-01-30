@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.i18n import gettext as _
 
-from src.database import BotUser, Referral, Payment
+from src.database import BotUser, GiftCode, Payment, Referral
 from src.services.api_client import NotFoundError, api_client
 from src.utils.i18n import get_i18n
 from src.utils.logger import logger
@@ -243,6 +243,16 @@ async def cb_connect(callback: CallbackQuery) -> None:
                 InlineKeyboardButton(
                     text=_("connect.trial"),
                     callback_data="user:trial"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_("gift.menu_button"),
+                    callback_data="user:gift"
+                ),
+                InlineKeyboardButton(
+                    text=_("gift.activate_button"),
+                    callback_data="gift:activate"
                 )
             ],
             [
@@ -1859,3 +1869,560 @@ async def cb_check_payment_status(callback: CallbackQuery) -> None:
                 ]])
             )
 
+
+# ==================== ПОДАРОЧНЫЕ ПОДПИСКИ ====================
+
+@router.callback_query(F.data == "user:gift")
+async def cb_gift_menu(callback: CallbackQuery) -> None:
+    """Меню подарочных подписок."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=_("gift.menu_button"),
+                    callback_data="gift:buy"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_("gift.activate_button"),
+                    callback_data="gift:activate"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_("gift.my_gifts"),
+                    callback_data="gift:my"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:connect"
+                )
+            ]
+        ]
+        
+        await _safe_edit_or_send(
+            callback,
+            _("gift.title"),
+            InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data == "gift:buy")
+async def cb_gift_buy(callback: CallbackQuery) -> None:
+    """Выбор срока подарочной подписки."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        from src.config import settings
+        
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=f"{_('payment.subscription_1month')} — {settings.subscription_rub_1month} ₽",
+                    callback_data="gift:period:1"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{_('payment.subscription_3months')} — {settings.subscription_rub_3months} ₽",
+                    callback_data="gift:period:3"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{_('payment.subscription_6months')} — {settings.subscription_rub_6months} ₽",
+                    callback_data="gift:period:6"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{_('payment.subscription_12months')} — {settings.subscription_rub_12months} ₽",
+                    callback_data="gift:period:12"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:gift"
+                )
+            ]
+        ]
+        
+        await _safe_edit_or_send(
+            callback,
+            _("gift.choose_period"),
+            InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data.startswith("gift:period:"))
+async def cb_gift_period(callback: CallbackQuery) -> None:
+    """Выбор способа оплаты для подарка."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    try:
+        months = int(callback.data.split(":")[2])
+    except (ValueError, IndexError):
+        return
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        from src.config import settings
+        
+        # Получаем цены
+        rub_prices = {
+            1: settings.subscription_rub_1month,
+            3: settings.subscription_rub_3months,
+            6: settings.subscription_rub_6months,
+            12: settings.subscription_rub_12months,
+        }
+        stars_prices = {
+            1: settings.subscription_stars_1month,
+            3: settings.subscription_stars_3months,
+            6: settings.subscription_stars_6months,
+            12: settings.subscription_stars_12months,
+        }
+        
+        rub_price = rub_prices.get(months, 0)
+        stars_price = stars_prices.get(months, 0)
+        
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=f"⭐ {stars_price} Stars",
+                    callback_data=f"gift:pay:{months}:stars"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"🏦 СБП — {rub_price} ₽",
+                    callback_data=f"gift:pay:{months}:sbp"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"💳 Карта — {rub_price} ₽",
+                    callback_data=f"gift:pay:{months}:card"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="gift:buy"
+                )
+            ]
+        ]
+        
+        await _safe_edit_or_send(
+            callback,
+            _("gift.choose_payment_method"),
+            InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data.startswith("gift:pay:"))
+async def cb_gift_pay(callback: CallbackQuery) -> None:
+    """Обработка оплаты подарочной подписки."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    try:
+        parts = callback.data.split(":")
+        months = int(parts[2])
+        payment_method = parts[3]
+    except (ValueError, IndexError):
+        return
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        from src.config import settings
+        
+        subscription_days = months * 30
+        
+        if payment_method == "stars":
+            # Для Stars используем процесс похожий на обычную оплату
+            from src.services.payment_service import get_stars_amount
+            
+            stars = get_stars_amount(months)
+            
+            # Создаем invoice для подарка
+            from src.services.payment_service import create_gift_invoice
+            
+            try:
+                invoice_link = await create_gift_invoice(
+                    bot=callback.message.bot,
+                    user_id=user_id,
+                    subscription_months=months
+                )
+                
+                buttons = [
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.pay_button"),
+                            url=invoice_link
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data=f"gift:period:{months}"
+                        )
+                    ]
+                ]
+                
+                await _safe_edit_or_send(
+                    callback,
+                    _("payment.invoice_created"),
+                    InlineKeyboardMarkup(inline_keyboard=buttons),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.exception("Failed to create gift invoice")
+                await _safe_edit_or_send(
+                    callback,
+                    _("gift.error_creating"),
+                    InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="gift:buy"
+                        )
+                    ]]),
+                    parse_mode="HTML"
+                )
+        
+        elif payment_method in ("sbp", "card"):
+            # Создаем платеж через YooKassa для подарка
+            from src.services.yookassa_service import create_yookassa_gift_payment, generate_qr_code_image
+            
+            try:
+                payment_data = await create_yookassa_gift_payment(
+                    user_id=user_id,
+                    subscription_months=months,
+                    payment_method=payment_method
+                )
+                
+                payment_url = payment_data["payment_url"]
+                payment_db_id = payment_data["payment_db_id"]
+                amount = payment_data["amount"]
+                qr_data = payment_data.get("qr_data", payment_url)
+                yookassa_payment_id = payment_data.get("payment_id", "")
+                
+                # Генерируем QR-код
+                qr_image = generate_qr_code_image(qr_data)
+                qr_file = BufferedInputFile(qr_image.read(), filename="qr_code.png")
+                
+                if payment_method == "sbp":
+                    payment_text = _("payment.yookassa_invoice_created_with_qr").format(
+                        months_text=_get_months_text(months, locale),
+                        amount=amount,
+                        payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                    )
+                else:
+                    payment_text = _("payment.yookassa_invoice_created_card").format(
+                        months_text=_get_months_text(months, locale),
+                        amount=amount,
+                        payment_id=yookassa_payment_id[:12] if yookassa_payment_id else ""
+                    )
+                
+                buttons = [
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.pay_button"),
+                            url=payment_url
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.check_status"),
+                            callback_data=f"check_gift_payment:{payment_db_id}"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data=f"gift:period:{months}"
+                        )
+                    ]
+                ]
+                
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer_photo(
+                    photo=qr_file,
+                    caption=payment_text,
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                )
+            except Exception as e:
+                logger.exception("Failed to create YooKassa gift payment")
+                await _safe_edit_or_send(
+                    callback,
+                    _("gift.error_creating"),
+                    InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="gift:buy"
+                        )
+                    ]]),
+                    parse_mode="HTML"
+                )
+
+
+@router.callback_query(F.data == "gift:my")
+async def cb_gift_my(callback: CallbackQuery) -> None:
+    """Показать мои подарочные коды."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        gifts = GiftCode.get_user_gifts(user_id)
+        
+        if not gifts:
+            text = _("gift.my_gifts_empty")
+        else:
+            text = f"<b>{_('gift.my_gifts_title')}</b>\n\n"
+            for gift in gifts:
+                days = gift["subscription_days"]
+                created = gift["created_at"][:10] if gift["created_at"] else ""
+                
+                if gift["status"] == "active":
+                    text += _("gift.gift_item_active").format(
+                        code=gift["code"],
+                        days=days,
+                        created=created
+                    ) + "\n\n"
+                else:
+                    activated = gift["activated_at"][:10] if gift["activated_at"] else ""
+                    text += _("gift.gift_item_used").format(
+                        code=gift["code"],
+                        days=days,
+                        activated=activated
+                    ) + "\n\n"
+        
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:gift"
+                )
+            ]
+        ]
+        
+        await _safe_edit_or_send(
+            callback,
+            text,
+            InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data == "gift:activate")
+async def cb_gift_activate(callback: CallbackQuery) -> None:
+    """Начало активации подарочного кода."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        from aiogram.fsm.context import FSMContext
+        from aiogram.fsm.state import State, StatesGroup
+        
+        # Устанавливаем состояние ожидания кода
+        # Для простоты используем callback_data с ожиданием сообщения
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:gift"
+                )
+            ]
+        ]
+        
+        await _safe_edit_or_send(
+            callback,
+            _("gift.activate_title"),
+            InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
+        )
+        
+        # Сохраняем состояние ожидания кода
+        from src.handlers.state import set_user_state, GIFT_ACTIVATE_STATE
+        set_user_state(user_id, GIFT_ACTIVATE_STATE)
+
+
+@router.message(F.text.regexp(r"^GIFT-[A-Z0-9]{4}-[A-Z0-9]{4}$"))
+async def msg_activate_gift_code(message: Message) -> None:
+    """Обработка ввода подарочного кода."""
+    user_id = message.from_user.id
+    user = BotUser.get_or_create(user_id, message.from_user.username)
+    locale = user.get("language", "ru")
+    
+    code = message.text.strip().upper()
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        # Проверяем код
+        gift = GiftCode.get_by_code(code)
+        
+        if not gift:
+            await message.answer(
+                _("gift.code_not_found"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:gift"
+                    )
+                ]]),
+                parse_mode="HTML"
+            )
+            return
+        
+        if gift["status"] != "active":
+            await message.answer(
+                _("gift.code_already_used"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:gift"
+                    )
+                ]]),
+                parse_mode="HTML"
+            )
+            return
+        
+        # Проверяем, что пользователь не активирует свой собственный код
+        if gift["buyer_id"] == user_id:
+            await message.answer(
+                _("gift.cannot_activate_own"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:gift"
+                    )
+                ]]),
+                parse_mode="HTML"
+            )
+            return
+        
+        # Активируем подписку для получателя
+        try:
+            subscription_days = gift["subscription_days"]
+            username = user.get("username") or f"user_{user_id}"
+            
+            # Проверяем, есть ли уже подписка у пользователя
+            existing_uuid = user.get("remnawave_user_uuid")
+            
+            if existing_uuid:
+                # Продлеваем существующую подписку
+                try:
+                    existing_user = await api_client.get_user(existing_uuid)
+                    if existing_user:
+                        from datetime import datetime, timedelta
+                        current_expire = existing_user.get("expireAt")
+                        if current_expire:
+                            expire_dt = datetime.fromisoformat(current_expire.replace("Z", "+00:00"))
+                            if expire_dt > datetime.now(expire_dt.tzinfo):
+                                new_expire = expire_dt + timedelta(days=subscription_days)
+                            else:
+                                new_expire = datetime.now() + timedelta(days=subscription_days)
+                        else:
+                            new_expire = datetime.now() + timedelta(days=subscription_days)
+                        
+                        expire_str = new_expire.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                        if not expire_str.endswith("Z"):
+                            expire_str += "Z"
+                        
+                        await api_client.update_user(existing_uuid, expire_at=expire_str)
+                        
+                        # Отмечаем код как использованный
+                        GiftCode.activate(code, user_id, existing_uuid)
+                        
+                        await message.answer(
+                            _("gift.activation_success").format(expire_date=expire_str[:10]),
+                            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                                InlineKeyboardButton(
+                                    text=_("user_menu.my_access"),
+                                    callback_data="user:my_access"
+                                )
+                            ]]),
+                            parse_mode="HTML"
+                        )
+                        return
+                except Exception as e:
+                    logger.exception("Failed to extend subscription via gift")
+            
+            # Создаем нового пользователя в Remnawave
+            from datetime import datetime, timedelta
+            expire_date = (datetime.now() + timedelta(days=subscription_days)).replace(microsecond=0).isoformat() + "Z"
+            
+            result = await api_client.create_user(
+                username=f"gift_{user_id}_{int(datetime.now().timestamp())}",
+                expire_at=expire_date,
+                telegram_id=user_id
+            )
+            
+            if result and result.get("uuid"):
+                new_uuid = result["uuid"]
+                BotUser.set_remnawave_uuid(user_id, new_uuid)
+                GiftCode.activate(code, user_id, new_uuid)
+                
+                await message.answer(
+                    _("gift.activation_success").format(expire_date=expire_date[:10]),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.my_access"),
+                            callback_data="user:my_access"
+                        )
+                    ]]),
+                    parse_mode="HTML"
+                )
+            else:
+                await message.answer(
+                    _("gift.activation_failed"),
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="user:gift"
+                        )
+                    ]]),
+                    parse_mode="HTML"
+                )
+        except Exception as e:
+            logger.exception("Failed to activate gift code")
+            await message.answer(
+                _("gift.activation_failed"),
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=_("user_menu.back"),
+                        callback_data="user:gift"
+                    )
+                ]]),
+                parse_mode="HTML"
+            )

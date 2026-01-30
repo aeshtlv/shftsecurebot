@@ -1,5 +1,7 @@
 """База данных для пользователей бота и рефералов."""
+import secrets
 import sqlite3
+import string
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -113,6 +115,31 @@ def init_database():
             cursor.execute("ALTER TABLE payments ADD COLUMN yookassa_payment_url TEXT")
         except sqlite3.OperationalError:
             pass  # Колонка уже существует
+        
+        # Таблица подарочных кодов
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS gift_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE NOT NULL,
+                buyer_id INTEGER NOT NULL,
+                subscription_days INTEGER NOT NULL,
+                stars INTEGER DEFAULT 0,
+                amount_rub INTEGER DEFAULT 0,
+                payment_method TEXT DEFAULT 'stars',
+                status TEXT DEFAULT 'active',
+                recipient_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                activated_at TIMESTAMP,
+                remnawave_user_uuid TEXT,
+                FOREIGN KEY (buyer_id) REFERENCES bot_users(telegram_id),
+                FOREIGN KEY (recipient_id) REFERENCES bot_users(telegram_id)
+            )
+        """)
+        
+        # Индекс для быстрого поиска по коду
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gift_codes_code ON gift_codes(code)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gift_codes_buyer ON gift_codes(buyer_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gift_codes_status ON gift_codes(status)")
 
 
 class BotUser:
@@ -366,4 +393,108 @@ class Payment:
                 SET yookassa_payment_id = ?, yookassa_payment_url = ?
                 WHERE id = ?
             """, (yookassa_payment_id, yookassa_payment_url, payment_id))
+
+
+class GiftCode:
+    """Модель подарочного кода."""
+    
+    @staticmethod
+    def generate_code() -> str:
+        """Генерирует уникальный подарочный код формата GIFT-XXXX-XXXX."""
+        chars = string.ascii_uppercase + string.digits
+        # Исключаем похожие символы (0, O, I, L, 1)
+        chars = chars.replace('0', '').replace('O', '').replace('I', '').replace('L', '').replace('1', '')
+        part1 = ''.join(secrets.choice(chars) for _ in range(4))
+        part2 = ''.join(secrets.choice(chars) for _ in range(4))
+        return f"GIFT-{part1}-{part2}"
+    
+    @staticmethod
+    def create(
+        buyer_id: int,
+        subscription_days: int,
+        stars: int = 0,
+        amount_rub: int = 0,
+        payment_method: str = "stars"
+    ) -> Optional[dict]:
+        """Создает подарочный код после успешной оплаты."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Генерируем уникальный код
+            for _ in range(10):  # Максимум 10 попыток
+                code = GiftCode.generate_code()
+                try:
+                    cursor.execute("""
+                        INSERT INTO gift_codes (code, buyer_id, subscription_days, stars, amount_rub, payment_method)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (code, buyer_id, subscription_days, stars, amount_rub, payment_method))
+                    
+                    cursor.execute("SELECT * FROM gift_codes WHERE id = ?", (cursor.lastrowid,))
+                    return dict(cursor.fetchone())
+                except sqlite3.IntegrityError:
+                    continue  # Код уже существует, генерируем новый
+            
+            return None  # Не удалось создать код
+    
+    @staticmethod
+    def get_by_code(code: str) -> Optional[dict]:
+        """Получает подарочный код по коду."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            # Нормализуем код (убираем пробелы, приводим к верхнему регистру)
+            normalized_code = code.strip().upper()
+            cursor.execute("SELECT * FROM gift_codes WHERE code = ?", (normalized_code,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    @staticmethod
+    def activate(code: str, recipient_id: int, remnawave_uuid: str) -> bool:
+        """Активирует подарочный код для получателя."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            normalized_code = code.strip().upper()
+            
+            # Проверяем, что код существует и активен
+            cursor.execute(
+                "SELECT id, status FROM gift_codes WHERE code = ?",
+                (normalized_code,)
+            )
+            row = cursor.fetchone()
+            
+            if not row:
+                return False
+            
+            if row['status'] != 'active':
+                return False
+            
+            # Активируем код
+            cursor.execute("""
+                UPDATE gift_codes 
+                SET status = 'used', recipient_id = ?, activated_at = ?, remnawave_user_uuid = ?
+                WHERE code = ?
+            """, (recipient_id, datetime.now().isoformat(), remnawave_uuid, normalized_code))
+            
+            return cursor.rowcount > 0
+    
+    @staticmethod
+    def get_user_gifts(buyer_id: int) -> list:
+        """Получает все подарочные коды, купленные пользователем."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM gift_codes WHERE buyer_id = ? ORDER BY created_at DESC",
+                (buyer_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    
+    @staticmethod
+    def get_active_gifts(buyer_id: int) -> list:
+        """Получает активные (неиспользованные) подарочные коды пользователя."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM gift_codes WHERE buyer_id = ? AND status = 'active' ORDER BY created_at DESC",
+                (buyer_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
