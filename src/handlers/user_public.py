@@ -43,19 +43,23 @@ def _get_user_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
                 callback_data="user:connect"
             )
         ],
-        # 2️⃣ Мой доступ / Настройки — вторичные → в одной строке
+        # 2️⃣ Мой доступ / Мой профиль — вторичные → в одной строке
         [
             InlineKeyboardButton(
                 text=_("user_menu.my_access"),
                 callback_data="user:my_access"
             ),
             InlineKeyboardButton(
-                text=_("user_menu.settings"),
-                callback_data="user:settings"
+                text=_("loyalty.menu_button"),
+                callback_data="user:profile"
             )
         ],
-        # 3️⃣ Поддержка — редко → отдельно
+        # 3️⃣ Настройки / Поддержка → в одной строке
         [
+            InlineKeyboardButton(
+                text=_("user_menu.settings"),
+                callback_data="user:settings"
+            ),
             InlineKeyboardButton(
                 text=_("user_menu.support"),
                 callback_data="user:support"
@@ -487,6 +491,94 @@ async def cb_support(callback: CallbackQuery) -> None:
         await callback.message.edit_text(
             _("support.title"),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+        )
+
+
+@router.callback_query(F.data == "user:profile")
+async def cb_profile(callback: CallbackQuery) -> None:
+    """Обработчик 'Мой профиль' — показывает статус лояльности."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    from src.database import Loyalty
+    from src.services.loyalty_service import get_loyalty_profile, BASE_PRICES
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        profile = get_loyalty_profile(user_id)
+        
+        # Формируем текст профиля
+        text = f"<b>{_('loyalty.profile_title')}</b>\n\n"
+        text += f"{_('loyalty.status').format(status_name=profile['status_name'])}\n"
+        text += f"{_('loyalty.points').format(points=profile['points'])}\n"
+        text += f"{_('loyalty.total_spent').format(total_spent=profile['total_spent'])}\n\n"
+        
+        # Текущие скидки
+        if profile['current_discounts']:
+            text += f"<b>{_('loyalty.current_discounts')}</b>\n"
+            for d in profile['current_discounts']:
+                period_key = f"period_{d['days']}d"
+                period_name = _(period_key)
+                text += f"   • {period_name}: <s>{d['base_price']}₽</s> → <b>{d['final_price']}₽</b> (-{d['discount']}₽)\n"
+        else:
+            text += f"<i>{_('loyalty.no_discounts')}</i>\n"
+        
+        text += "\n"
+        
+        # Следующий статус
+        if profile['next_status_info']:
+            text += _('loyalty.next_status').format(
+                next_status=profile['next_status_info']['next_status_name'],
+                points_needed=profile['next_status_info']['points_needed']
+            )
+        else:
+            text += _('loyalty.max_status')
+        
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=_("loyalty.how_it_works"),
+                    callback_data="user:profile:howto"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:menu"
+                )
+            ]
+        ]
+        await callback.message.edit_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data == "user:profile:howto")
+async def cb_profile_howto(callback: CallbackQuery) -> None:
+    """Показывает информацию о системе лояльности."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:profile"
+                )
+            ]
+        ]
+        await callback.message.edit_text(
+            _("loyalty.how_it_works_title"),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
         )
 
 
@@ -1160,43 +1252,40 @@ async def cb_buy(callback: CallbackQuery) -> None:
     
     i18n = get_i18n()
     with i18n.use_locale(locale):
-        # Получаем актуальные цены из настроек
-        from src.config import get_settings
-        settings = get_settings()
+        # Получаем цены с учётом скидки лояльности
+        from src.services.loyalty_service import get_price_with_discount
         
-        # Клавиатура с вариантами подписки и ценами
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    text=_("payment.subscription_1month"),
-                    callback_data="buy:1"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_("payment.subscription_3months"),
-                    callback_data="buy:3"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_("payment.subscription_6months"),
-                    callback_data="buy:6"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_("payment.subscription_12months"),
-                    callback_data="buy:12"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_("user_menu.back"),
-                    callback_data="user:connect"
-                )
-            ]
+        # Периоды и их названия
+        periods = [
+            (1, 30, _("payment.subscription_1month")),
+            (3, 90, _("payment.subscription_3months")),
+            (6, 180, _("payment.subscription_6months")),
+            (12, 365, _("payment.subscription_12months")),
         ]
+        
+        buttons = []
+        for months, days, label in periods:
+            price_info = get_price_with_discount(user_id, days)
+            
+            if price_info['discount'] > 0:
+                # Есть скидка - показываем её
+                price_text = f"{label} — {price_info['discounted_price']}₽ (-{price_info['discount']}₽)"
+            else:
+                price_text = f"{label} — {price_info['base_price']}₽"
+            
+            buttons.append([
+                InlineKeyboardButton(
+                    text=price_text,
+                    callback_data=f"buy:{months}"
+                )
+            ])
+        
+        buttons.append([
+            InlineKeyboardButton(
+                text=_("user_menu.back"),
+                callback_data="user:connect"
+            )
+        ])
         
         await callback.message.edit_text(
             _("payment.choose_subscription"),

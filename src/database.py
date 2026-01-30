@@ -61,6 +61,22 @@ def init_database():
         except sqlite3.OperationalError:
             pass  # Колонка уже существует
         
+        # Миграция: добавляем поля системы лояльности
+        try:
+            cursor.execute("ALTER TABLE bot_users ADD COLUMN loyalty_points INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            cursor.execute("ALTER TABLE bot_users ADD COLUMN loyalty_status TEXT DEFAULT 'bronze'")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            cursor.execute("ALTER TABLE bot_users ADD COLUMN total_spent INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        
         # Таблица рефералов
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS referrals (
@@ -497,4 +513,144 @@ class GiftCode:
                 (buyer_id,)
             )
             return [dict(row) for row in cursor.fetchall()]
+
+
+class Loyalty:
+    """Система лояльности."""
+    
+    # Пороги для статусов (в баллах, 1 балл = 1 рубль)
+    THRESHOLDS = {
+        'bronze': 0,
+        'silver': 500,
+        'gold': 2000,
+        'platinum': 5000
+    }
+    
+    # Скидки для каждого статуса и периода (в рублях)
+    # Базовые цены: 1мес=129, 3мес=299, 6мес=549, 12мес=999
+    DISCOUNTS = {
+        'bronze': {30: 0, 90: 0, 180: 0, 365: 0},
+        'silver': {30: 10, 90: 20, 180: 30, 365: 50},      # ~5%
+        'gold': {30: 14, 90: 30, 180: 60, 365: 100},       # ~10%
+        'platinum': {30: 20, 90: 50, 180: 90, 365: 150}    # ~15%
+    }
+    
+    # Названия статусов с эмодзи
+    STATUS_NAMES = {
+        'bronze': '🥉 Bronze',
+        'silver': '🥈 Silver',
+        'gold': '🥇 Gold',
+        'platinum': '💎 Platinum'
+    }
+    
+    @staticmethod
+    def get_user_loyalty(telegram_id: int) -> dict:
+        """Получает данные лояльности пользователя."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT loyalty_points, loyalty_status, total_spent FROM bot_users WHERE telegram_id = ?",
+                (telegram_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'points': row['loyalty_points'] or 0,
+                    'status': row['loyalty_status'] or 'bronze',
+                    'total_spent': row['total_spent'] or 0
+                }
+            return {'points': 0, 'status': 'bronze', 'total_spent': 0}
+    
+    @staticmethod
+    def add_points(telegram_id: int, amount_rub: int) -> dict:
+        """Добавляет баллы за покупку и обновляет статус."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Получаем текущие данные
+            cursor.execute(
+                "SELECT loyalty_points, total_spent FROM bot_users WHERE telegram_id = ?",
+                (telegram_id,)
+            )
+            row = cursor.fetchone()
+            current_points = (row['loyalty_points'] or 0) if row else 0
+            total_spent = (row['total_spent'] or 0) if row else 0
+            
+            # Добавляем баллы (1 рубль = 1 балл)
+            new_points = current_points + amount_rub
+            new_total_spent = total_spent + amount_rub
+            
+            # Определяем новый статус
+            new_status = 'bronze'
+            for status, threshold in sorted(Loyalty.THRESHOLDS.items(), key=lambda x: x[1], reverse=True):
+                if new_points >= threshold:
+                    new_status = status
+                    break
+            
+            # Обновляем в БД
+            cursor.execute("""
+                UPDATE bot_users 
+                SET loyalty_points = ?, loyalty_status = ?, total_spent = ?
+                WHERE telegram_id = ?
+            """, (new_points, new_status, new_total_spent, telegram_id))
+            conn.commit()
+            
+            return {
+                'points': new_points,
+                'status': new_status,
+                'total_spent': new_total_spent,
+                'previous_status': row['loyalty_status'] if row and row['loyalty_status'] else 'bronze'
+            }
+    
+    @staticmethod
+    def get_discount(telegram_id: int, days: int) -> int:
+        """Получает скидку в рублях для пользователя на указанный период."""
+        loyalty = Loyalty.get_user_loyalty(telegram_id)
+        status = loyalty['status']
+        
+        # Находим ближайший подходящий период
+        available_days = sorted(Loyalty.DISCOUNTS[status].keys())
+        discount_days = days
+        for d in available_days:
+            if d >= days:
+                discount_days = d
+                break
+        else:
+            discount_days = available_days[-1]
+        
+        return Loyalty.DISCOUNTS[status].get(discount_days, 0)
+    
+    @staticmethod
+    def get_discounted_price(base_price: int, telegram_id: int, days: int) -> tuple[int, int]:
+        """Возвращает цену со скидкой и размер скидки."""
+        discount = Loyalty.get_discount(telegram_id, days)
+        discounted_price = max(base_price - discount, 0)
+        return discounted_price, discount
+    
+    @staticmethod
+    def get_next_status_info(telegram_id: int) -> dict | None:
+        """Получает информацию о следующем статусе."""
+        loyalty = Loyalty.get_user_loyalty(telegram_id)
+        current_status = loyalty['status']
+        current_points = loyalty['points']
+        
+        statuses = ['bronze', 'silver', 'gold', 'platinum']
+        current_idx = statuses.index(current_status)
+        
+        if current_idx >= len(statuses) - 1:
+            return None  # Уже максимальный статус
+        
+        next_status = statuses[current_idx + 1]
+        points_needed = Loyalty.THRESHOLDS[next_status] - current_points
+        
+        return {
+            'next_status': next_status,
+            'next_status_name': Loyalty.STATUS_NAMES[next_status],
+            'points_needed': points_needed
+        }
+    
+    @staticmethod
+    def get_status_name(status: str) -> str:
+        """Возвращает название статуса с эмодзи."""
+        return Loyalty.STATUS_NAMES.get(status, '🥉 Bronze')
 

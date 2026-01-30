@@ -9,8 +9,38 @@ from src.database import GiftCode, Payment
 from src.utils.logger import logger
 
 
-def get_stars_amount(subscription_months: int) -> int:
-    """Получить стоимость подписки в Stars."""
+def get_stars_amount(subscription_months: int, user_id: int | None = None) -> int:
+    """Получить стоимость подписки в Stars с учётом скидки лояльности.
+    
+    Args:
+        subscription_months: Количество месяцев
+        user_id: ID пользователя для расчёта скидки (None — без скидки)
+    
+    Returns:
+        Цена в Stars
+    """
+    settings = get_settings()
+    stars_prices = {
+        1: settings.subscription_stars_1month,
+        3: settings.subscription_stars_3months,
+        6: settings.subscription_stars_6months,
+        12: settings.subscription_stars_12months,
+    }
+    base_stars = stars_prices.get(subscription_months, 0)
+    
+    if not user_id or not base_stars:
+        return base_stars
+    
+    # Применяем скидку лояльности
+    from src.services.loyalty_service import get_price_with_discount
+    days = subscription_months * 30
+    price_info = get_price_with_discount(user_id, days)
+    
+    return price_info['stars_discounted']
+
+
+def get_stars_amount_base(subscription_months: int) -> int:
+    """Получить базовую стоимость подписки в Stars (без скидки)."""
     settings = get_settings()
     stars_prices = {
         1: settings.subscription_stars_1month,
@@ -38,24 +68,26 @@ async def create_subscription_invoice(
     """
     settings = get_settings()
     
-    # Получаем цену в Stars
-    stars_prices = {
-        1: settings.subscription_stars_1month,
-        3: settings.subscription_stars_3months,
-        6: settings.subscription_stars_6months,
-        12: settings.subscription_stars_12months,
-    }
+    # Получаем базовую цену в Stars
+    base_stars = get_stars_amount_base(subscription_months)
+    
     logger.info(
-        "Stars price table: 1m=%s,3m=%s,6m=%s,12m=%s (requested %s months)",
-        stars_prices[1], stars_prices[3], stars_prices[6], stars_prices[12], subscription_months
+        "Stars base price: %s for %s months (user %s)",
+        base_stars, subscription_months, user_id
     )
     
-    if subscription_months not in stars_prices:
+    if not base_stars:
         raise ValueError(f"Invalid subscription months: {subscription_months}")
     
-    base_stars = stars_prices[subscription_months]
-    stars = base_stars
+    # Применяем скидку лояльности
+    stars = get_stars_amount(subscription_months, user_id)
     subscription_days = subscription_months * 30
+    
+    if stars < base_stars:
+        logger.info(
+            "Loyalty discount applied: %s Stars -> %s Stars for user %s",
+            base_stars, stars, user_id
+        )
     
     # Создаем короткий payload для invoice (Telegram ограничивает длину)
     # Используем только необходимые данные
@@ -355,6 +387,20 @@ async def process_successful_payment(
         
         # Обновляем статус платежа
         Payment.update_status(payment["id"], "completed", user_uuid)
+        
+        # Начисляем баллы лояльности
+        from src.services.loyalty_service import process_payment_loyalty, BASE_PRICES
+        try:
+            amount_rub = BASE_PRICES.get(subscription_days, 129)  # Базовая цена в рублях
+            loyalty_result = process_payment_loyalty(user_id, amount_rub)
+            if loyalty_result and loyalty_result.get('status_upgraded'):
+                logger.info(
+                    "User %s upgraded to %s status after payment",
+                    user_id, loyalty_result['new_status']
+                )
+                # Уведомление о повышении статуса можно отправить вместе с платежом
+        except Exception as loyalty_exc:
+            logger.warning("Failed to process loyalty points: %s", loyalty_exc)
         
         # Начисляем бонус рефереру (если есть)
         from src.services.referral_service import grant_referral_bonus
