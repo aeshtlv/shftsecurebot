@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     # Настройки для YooKassa
     yookassa_shop_id: str | None = Field(default=None, alias="YOOKASSA_SHOP_ID")
     yookassa_secret_key: str | None = Field(default=None, alias="YOOKASSA_SECRET_KEY")
+    yookassa_return_url: str | None = Field(default=None, alias="YOOKASSA_RETURN_URL")
     # Цены в рублях для YooKassa (СБП и банковские карты)
     subscription_rub_1month: int = Field(default=500, alias="SUBSCRIPTION_RUB_1MONTH")
     subscription_rub_3months: int = Field(default=1200, alias="SUBSCRIPTION_RUB_3MONTHS")
