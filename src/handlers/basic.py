@@ -36,7 +36,6 @@ from src.keyboards.node_actions import node_actions_keyboard
 from src.keyboards.token_actions import token_actions_keyboard
 from src.keyboards.template_actions import template_actions_keyboard
 from src.keyboards.snippet_actions import snippet_actions_keyboard
-from src.keyboards.config_actions import config_actions_keyboard
 from src.keyboards.bulk_users import bulk_users_keyboard
 from src.keyboards.template_menu import template_menu_keyboard, template_list_keyboard
 from src.keyboards.bulk_hosts import bulk_hosts_keyboard

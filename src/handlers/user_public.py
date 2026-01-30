@@ -1208,53 +1208,54 @@ async def cb_buy_subscription(callback: CallbackQuery) -> None:
         action = parts[2] if len(parts) > 2 else None
         
         # Показываем меню выбора способа оплаты
-        i18n = get_i18n()
-        with i18n.use_locale(locale):
-            months_text = _get_months_text(subscription_months, locale)
-            
-            buttons = [
-                [
-                    InlineKeyboardButton(
-                        text=_("payment.payment_method_stars"),
-                        callback_data=f"payment:{subscription_months}:stars"
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=_("payment.payment_method_sbp"),
-                        callback_data=f"payment:{subscription_months}:sbp"
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=_("payment.payment_method_card"),
-                        callback_data=f"payment:{subscription_months}:card"
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=_("user_menu.back"),
-                        callback_data="user:buy"
-                    )
+            # Показываем меню выбора способа оплаты
+            i18n = get_i18n()
+            with i18n.use_locale(locale):
+                months_text = _get_months_text(subscription_months, locale)
+                
+                buttons = [
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.payment_method_stars"),
+                            callback_data=f"payment:{subscription_months}:stars"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.payment_method_sbp"),
+                            callback_data=f"payment:{subscription_months}:sbp"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("payment.payment_method_card"),
+                            callback_data=f"payment:{subscription_months}:card"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=_("user_menu.back"),
+                            callback_data="user:buy"
+                        )
+                    ]
                 ]
-            ]
-            
-            # Безопасное редактирование - если сообщение фото, удаляем и отправляем новое
-            try:
-                await callback.message.edit_text(
-                    _("payment.choose_payment_method"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-                )
-            except Exception:
-                # Если не удалось отредактировать (например, это фото), удаляем и отправляем новое
+                
+                # Безопасное редактирование - если сообщение фото, удаляем и отправляем новое
                 try:
-                    await callback.message.delete()
+                    await callback.message.edit_text(
+                        _("payment.choose_payment_method"),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
                 except Exception:
-                    pass
-                await callback.message.answer(
-                    _("payment.choose_payment_method"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-                )
+                    # Если не удалось отредактировать (например, это фото), удаляем и отправляем новое
+                    try:
+                        await callback.message.delete()
+                    except Exception:
+                        pass
+                    await callback.message.answer(
+                        _("payment.choose_payment_method"),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
     except ValueError as e:
         logger.exception("Invalid subscription months")
         i18n = get_i18n()
@@ -1327,14 +1328,14 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
         with i18n.use_locale(locale):
             if payment_method == "stars":
                 # Для Telegram Stars сразу создаем invoice
-            from src.services.payment_service import create_subscription_invoice
-            
-            invoice_link = await create_subscription_invoice(
-                bot=callback.message.bot,
-                user_id=user_id,
+                from src.services.payment_service import create_subscription_invoice
+                
+                invoice_link = await create_subscription_invoice(
+                    bot=callback.message.bot,
+                    user_id=user_id,
                     subscription_months=subscription_months
-            )
-            
+                )
+                
                 buttons = [
                     [
                         InlineKeyboardButton(
@@ -1351,10 +1352,10 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                 ]
                 
                 try:
-                await callback.message.edit_text(
-                    _("payment.invoice_created"),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-                )
+                    await callback.message.edit_text(
+                        _("payment.invoice_created"),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+                    )
                 except Exception:
                     try:
                         await callback.message.delete()
@@ -1369,8 +1370,8 @@ async def cb_choose_payment_method(callback: CallbackQuery) -> None:
                 from src.services.yookassa_service import create_yookassa_payment
                 
                 payment_data = await create_yookassa_payment(
-                user_id=user_id,
-                subscription_months=subscription_months,
+                    user_id=user_id,
+                    subscription_months=subscription_months,
                     payment_method=payment_method
                 )
                 
