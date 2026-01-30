@@ -747,7 +747,7 @@
     "max_status": "🌟 You've reached maximum status!",
     "status_upgraded": "🎉 Congratulations!\n\nYour status has been upgraded to {new_status}!\n\nNew discounts are now available to you.",
     "how_it_works": "ℹ️ How it works",
-    "how_it_works_title": "ℹ️ Loyalty system\n\n🎯 How it works:\n• You get 1 point for every ruble spent\n• More points = higher status\n• Higher status = bigger discounts\n\n🏆 Statuses:\n🥉 Bronze — start (0 points)\n🥈 Silver — from 500 points (~5% discount)\n🥇 Gold — from 2000 points (~10% discount)\n💎 Platinum — from 5000 points (~15% discount)\n\n💡 Points are awarded for any purchases!",
+    "how_it_works_title": "ℹ️ Loyalty system\n\n🎯 How it works:\n• You get 1 point for every ruble spent\n• More points = higher status\n• Higher status = bigger discounts\n\n🏆 Statuses:\n🥉 Bronze — start (0 points)\n🥈 Silver — from 250 points (~5% discount)\n🥇 Gold — from 1000 points (~10% discount)\n💎 Platinum — from 2500 points (~15% discount)\n\n💡 Points are awarded for any purchases!",
     "discount_applied": "🎁 Your discount: -{discount}₽"
   },
   "period_30d": "1 month",
