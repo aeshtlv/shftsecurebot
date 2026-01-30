@@ -746,5 +746,25 @@
   "period_30d": "1 месяц",
   "period_90d": "3 месяца",
   "period_180d": "6 месяцев",
-  "period_365d": "12 месяцев"
+  "period_365d": "12 месяцев",
+  "payment_history": {
+    "menu_button": "📋 История платежей",
+    "title": "📋 История платежей",
+    "empty": "У вас пока нет платежей.",
+    "stats_title": "📊 Общая статистика",
+    "total_payments": "Всего покупок: {count}",
+    "total_spent_rub": "Потрачено: {amount}₽",
+    "total_spent_stars": "Потрачено: {amount}⭐",
+    "total_days": "Куплено дней: {days}",
+    "recent_title": "🕐 Последние платежи",
+    "payment_item": "• {date} — {amount} ({days} дн.)",
+    "payment_stars": "{stars}⭐",
+    "payment_rub": "{rub}₽",
+    "status_completed": "✅ Успешно",
+    "status_pending": "⏳ В обработке",
+    "status_failed": "❌ Ошибка",
+    "method_stars": "Stars",
+    "method_sbp": "СБП",
+    "method_card": "Карта"
+  }
 }

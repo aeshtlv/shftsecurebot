@@ -409,6 +409,45 @@ class Payment:
                 SET yookassa_payment_id = ?, yookassa_payment_url = ?
                 WHERE id = ?
             """, (yookassa_payment_id, yookassa_payment_url, payment_id))
+    
+    @staticmethod
+    def get_user_payments(user_id: int, limit: int = 20) -> list:
+        """Получает историю платежей пользователя."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, stars, amount_rub, status, subscription_days, 
+                       payment_method, created_at, completed_at
+                FROM payments 
+                WHERE user_id = ? AND status = 'completed'
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (user_id, limit))
+            return [dict(row) for row in cursor.fetchall()]
+    
+    @staticmethod
+    def get_user_stats(user_id: int) -> dict:
+        """Получает статистику платежей пользователя."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_payments,
+                    SUM(CASE WHEN amount_rub > 0 THEN amount_rub ELSE 0 END) as total_rub,
+                    SUM(CASE WHEN stars > 0 THEN stars ELSE 0 END) as total_stars,
+                    SUM(subscription_days) as total_days
+                FROM payments 
+                WHERE user_id = ? AND status = 'completed'
+            """, (user_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'total_payments': row['total_payments'] or 0,
+                    'total_rub': row['total_rub'] or 0,
+                    'total_stars': row['total_stars'] or 0,
+                    'total_days': row['total_days'] or 0
+                }
+            return {'total_payments': 0, 'total_rub': 0, 'total_stars': 0, 'total_days': 0}
 
 
 class GiftCode:

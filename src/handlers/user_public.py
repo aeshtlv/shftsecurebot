@@ -572,6 +572,12 @@ async def cb_profile(callback: CallbackQuery) -> None:
         buttons = [
             [
                 InlineKeyboardButton(
+                    text=_("payment_history.menu_button"),
+                    callback_data="user:payment_history"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="ℹ️ Как это работает",
                     callback_data="user:profile:howto"
                 )
@@ -583,6 +589,80 @@ async def cb_profile(callback: CallbackQuery) -> None:
                 )
             ]
         ]
+        await callback.message.edit_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data == "user:payment_history")
+async def cb_payment_history(callback: CallbackQuery) -> None:
+    """Обработчик истории платежей."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        # Получаем платежи и статистику
+        payments = Payment.get_user_payments(user_id, limit=10)
+        stats = Payment.get_user_stats(user_id)
+        
+        if not payments:
+            text = f"<b>{_('payment_history.title')}</b>\n\n"
+            text += f"<i>{_('payment_history.empty')}</i>"
+        else:
+            text = f"<b>{_('payment_history.title')}</b>\n"
+            text += "━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            # Статистика
+            text += f"<b>{_('payment_history.stats_title')}</b>\n"
+            text += f"📦 {_('payment_history.total_payments').format(count=stats['total_payments'])}\n"
+            
+            if stats['total_rub'] > 0:
+                text += f"💳 {_('payment_history.total_spent_rub').format(amount=stats['total_rub'])}\n"
+            if stats['total_stars'] > 0:
+                text += f"⭐ {_('payment_history.total_spent_stars').format(amount=stats['total_stars'])}\n"
+            
+            text += f"📅 {_('payment_history.total_days').format(days=stats['total_days'])}\n\n"
+            
+            # Последние платежи
+            text += f"<b>{_('payment_history.recent_title')}</b>\n"
+            
+            for p in payments:
+                # Форматируем дату
+                try:
+                    dt = datetime.fromisoformat(p['created_at'])
+                    date_str = dt.strftime("%d.%m.%Y")
+                except:
+                    date_str = p['created_at'][:10] if p['created_at'] else "—"
+                
+                # Сумма
+                if p['amount_rub'] and p['amount_rub'] > 0:
+                    amount_str = f"{p['amount_rub']}₽"
+                elif p['stars'] and p['stars'] > 0:
+                    amount_str = f"{p['stars']}⭐"
+                else:
+                    amount_str = "—"
+                
+                # Метод оплаты
+                method = p.get('payment_method', 'stars')
+                method_emoji = {'stars': '⭐', 'sbp': '🏦', 'card': '💳'}.get(method, '💰')
+                
+                days = p.get('subscription_days', 0)
+                text += f"{method_emoji} {date_str} — <b>{amount_str}</b> ({days} дн.)\n"
+        
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:profile"
+                )
+            ]
+        ]
+        
         await callback.message.edit_text(
             text,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),

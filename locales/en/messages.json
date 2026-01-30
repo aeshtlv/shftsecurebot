@@ -753,5 +753,25 @@
   "period_30d": "1 month",
   "period_90d": "3 months",
   "period_180d": "6 months",
-  "period_365d": "12 months"
+  "period_365d": "12 months",
+  "payment_history": {
+    "menu_button": "📋 Payment history",
+    "title": "📋 Payment history",
+    "empty": "You don't have any payments yet.",
+    "stats_title": "📊 Overall statistics",
+    "total_payments": "Total purchases: {count}",
+    "total_spent_rub": "Spent: {amount}₽",
+    "total_spent_stars": "Spent: {amount}⭐",
+    "total_days": "Days purchased: {days}",
+    "recent_title": "🕐 Recent payments",
+    "payment_item": "• {date} — {amount} ({days} d.)",
+    "payment_stars": "{stars}⭐",
+    "payment_rub": "{rub}₽",
+    "status_completed": "✅ Completed",
+    "status_pending": "⏳ Processing",
+    "status_failed": "❌ Failed",
+    "method_stars": "Stars",
+    "method_sbp": "SBP",
+    "method_card": "Card"
+  }
 }
