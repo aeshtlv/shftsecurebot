@@ -1926,7 +1926,8 @@ async def cb_gift_buy(callback: CallbackQuery) -> None:
     
     i18n = get_i18n()
     with i18n.use_locale(locale):
-        from src.config import settings
+        from src.config import get_settings
+        settings = get_settings()
         
         buttons = [
             [
@@ -1984,7 +1985,8 @@ async def cb_gift_period(callback: CallbackQuery) -> None:
     
     i18n = get_i18n()
     with i18n.use_locale(locale):
-        from src.config import settings
+        from src.config import get_settings
+        settings = get_settings()
         
         # Получаем цены
         rub_prices = {
@@ -2055,7 +2057,8 @@ async def cb_gift_pay(callback: CallbackQuery) -> None:
     
     i18n = get_i18n()
     with i18n.use_locale(locale):
-        from src.config import settings
+        from src.config import get_settings
+        settings = get_settings()
         
         subscription_days = months * 30
         
@@ -2250,11 +2253,7 @@ async def cb_gift_activate(callback: CallbackQuery) -> None:
     
     i18n = get_i18n()
     with i18n.use_locale(locale):
-        from aiogram.fsm.context import FSMContext
-        from aiogram.fsm.state import State, StatesGroup
-        
         # Устанавливаем состояние ожидания кода
-        # Для простоты используем callback_data с ожиданием сообщения
         buttons = [
             [
                 InlineKeyboardButton(
@@ -2341,7 +2340,8 @@ async def msg_activate_gift_code(message: Message) -> None:
             if existing_uuid:
                 # Продлеваем существующую подписку
                 try:
-                    existing_user = await api_client.get_user(existing_uuid)
+                    existing_user_data = await api_client.get_user_by_uuid(existing_uuid)
+                    existing_user = existing_user_data.get("response", existing_user_data)
                     if existing_user:
                         from datetime import datetime, timedelta
                         current_expire = existing_user.get("expireAt")
@@ -2358,7 +2358,7 @@ async def msg_activate_gift_code(message: Message) -> None:
                         if not expire_str.endswith("Z"):
                             expire_str += "Z"
                         
-                        await api_client.update_user(existing_uuid, expire_at=expire_str)
+                        await api_client.update_user(existing_uuid, expireAt=expire_str)
                         
                         # Отмечаем код как использованный
                         GiftCode.activate(code, user_id, existing_uuid)
@@ -2387,8 +2387,9 @@ async def msg_activate_gift_code(message: Message) -> None:
                 telegram_id=user_id
             )
             
-            if result and result.get("uuid"):
-                new_uuid = result["uuid"]
+            result_data = result.get("response", result) if result else {}
+            if result_data and result_data.get("uuid"):
+                new_uuid = result_data["uuid"]
                 BotUser.set_remnawave_uuid(user_id, new_uuid)
                 GiftCode.activate(code, user_id, new_uuid)
                 
