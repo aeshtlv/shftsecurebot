@@ -2,7 +2,7 @@
 import asyncio
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.i18n import gettext as _
 
 from src.handlers.common import _edit_text_safe, _not_admin, _send_clean_message
