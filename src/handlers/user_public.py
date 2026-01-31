@@ -3018,7 +3018,7 @@ async def cb_broadcast_test(callback: CallbackQuery) -> None:
         # Получаем список админов
         from src.config import get_settings
         settings = get_settings()
-        admin_ids = settings.admin_ids or []
+        admin_ids = settings.admins or []
         
         sent = 0
         bot = callback.message.bot
