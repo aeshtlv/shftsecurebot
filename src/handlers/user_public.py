@@ -331,8 +331,10 @@ async def cb_my_access(callback: CallbackQuery) -> None:
             # Формируем текст
             status = info.get("status", "UNKNOWN")
             expire_at = info.get("expireAt")
-            traffic_used = info.get("trafficUsed", 0)
-            traffic_limit = info.get("trafficLimit", 0)
+            # Правильные поля API Remnawave для трафика
+            user_traffic = info.get("userTraffic", {})
+            traffic_used = user_traffic.get("usedTrafficBytes", 0) if user_traffic else 0
+            traffic_limit = info.get("trafficLimitBytes", 0)
             
             status_text = {
                 "ACTIVE": _("my_access.status_active", locale=locale),
@@ -863,8 +865,10 @@ async def cb_subscription(callback: CallbackQuery) -> None:
             # Формируем текст
             status = info.get("status", "UNKNOWN")
             expire_at = info.get("expireAt")
-            traffic_used = info.get("trafficUsed", 0)
-            traffic_limit = info.get("trafficLimit", 0)
+            # Правильные поля API Remnawave для трафика
+            user_traffic = info.get("userTraffic", {})
+            traffic_used = user_traffic.get("usedTrafficBytes", 0) if user_traffic else 0
+            traffic_limit = info.get("trafficLimitBytes", 0)
             
             status_text = {
                 "ACTIVE": _("user.status_active", locale=locale),
