@@ -487,6 +487,12 @@ async def cb_support(callback: CallbackQuery) -> None:
         buttons = [
             [
                 InlineKeyboardButton(
+                    text=_("support.ask_question"),
+                    url="https://t.me/shftsup_bot"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=_("user_menu.back"),
                     callback_data="user:menu"
                 )
@@ -1398,10 +1404,10 @@ async def cb_buy(callback: CallbackQuery) -> None:
             ])
         
         buttons.append([
-            InlineKeyboardButton(
-                text=_("user_menu.back"),
-                callback_data="user:connect"
-            )
+                InlineKeyboardButton(
+                    text=_("user_menu.back"),
+                    callback_data="user:connect"
+                )
         ])
         
         await callback.message.edit_text(
