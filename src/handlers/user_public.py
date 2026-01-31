@@ -2890,11 +2890,12 @@ def _broadcast_menu_keyboard(user_counts: dict) -> InlineKeyboardMarkup:
 def _broadcast_confirm_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура подтверждения рассылки."""
     buttons = [
+        [InlineKeyboardButton(text=_("broadcast.btn_test"), callback_data="broadcast:test")],
+        [InlineKeyboardButton(text=_("broadcast.btn_confirm"), callback_data="broadcast:confirm")],
         [
-            InlineKeyboardButton(text=_("broadcast.btn_confirm"), callback_data="broadcast:confirm"),
             InlineKeyboardButton(text=_("broadcast.btn_cancel"), callback_data="broadcast:cancel"),
+            InlineKeyboardButton(text=_("broadcast.btn_back"), callback_data="user:broadcast"),
         ],
-        [InlineKeyboardButton(text=_("broadcast.btn_back"), callback_data="user:broadcast")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -2988,6 +2989,68 @@ async def cb_broadcast_cancel(callback: CallbackQuery) -> None:
             callback,
             _("broadcast.cancelled"),
             _broadcast_menu_keyboard(user_counts),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data == "broadcast:test")
+async def cb_broadcast_test(callback: CallbackQuery) -> None:
+    """Тестовая рассылка только админам."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    
+    if not _is_admin(user_id):
+        return
+    
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    data = BROADCAST_DATA.get(user_id, {})
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        if not data or not data.get('message_text'):
+            await callback.answer(_("broadcast.no_message"), show_alert=True)
+            return
+        
+        message_text = data.get('message_text', '')
+        photo_id = data.get('photo_id')
+        
+        # Получаем список админов
+        from src.config import get_settings
+        settings = get_settings()
+        admin_ids = settings.admin_ids or []
+        
+        sent = 0
+        bot = callback.message.bot
+        
+        import asyncio
+        for admin_id in admin_ids:
+            try:
+                if photo_id:
+                    await bot.send_photo(
+                        chat_id=admin_id,
+                        photo=photo_id,
+                        caption=f"🧪 <b>ТЕСТ РАССЫЛКИ</b>\n━━━━━━━━━━━━━━━━━━━━\n\n{message_text}",
+                        parse_mode="HTML"
+                    )
+                else:
+                    await bot.send_message(
+                        chat_id=admin_id,
+                        text=f"🧪 <b>ТЕСТ РАССЫЛКИ</b>\n━━━━━━━━━━━━━━━━━━━━\n\n{message_text}",
+                        parse_mode="HTML"
+                    )
+                sent += 1
+            except Exception as e:
+                logger.debug(f"Test broadcast error for admin {admin_id}: {e}")
+            await asyncio.sleep(0.05)
+        
+        # Показываем результат теста
+        result_text = _("broadcast.test_completed").format(sent=sent)
+        
+        await _safe_edit_or_send(
+            callback,
+            result_text,
+            _broadcast_confirm_keyboard(),
             parse_mode="HTML"
         )
 
