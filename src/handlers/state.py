@@ -26,6 +26,11 @@ USER_STATE: dict[int, str] = {}
 
 # Константы состояний
 GIFT_ACTIVATE_STATE = "gift_activate"
+BROADCAST_MESSAGE_STATE = "broadcast_message"
+
+# Словарь для хранения данных рассылки
+# Ключ: admin_id, Значение: dict с target_type, message_text, photo_id
+BROADCAST_DATA: dict[int, dict] = {}
 
 # Константы
 ADMIN_COMMAND_DELETE_DELAY = 2.0

@@ -265,6 +265,53 @@ class BotUser:
             """)
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
+    
+    @staticmethod
+    def get_all_user_ids() -> list[int]:
+        """Получает ID всех пользователей бота."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT telegram_id FROM bot_users")
+            return [row[0] for row in cursor.fetchall()]
+    
+    @staticmethod
+    def get_users_with_subscription() -> list[int]:
+        """Получает ID пользователей с активной подпиской (есть remnawave_user_uuid)."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT telegram_id FROM bot_users 
+                WHERE remnawave_user_uuid IS NOT NULL
+            """)
+            return [row[0] for row in cursor.fetchall()]
+    
+    @staticmethod
+    def get_users_without_subscription() -> list[int]:
+        """Получает ID пользователей без подписки."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT telegram_id FROM bot_users 
+                WHERE remnawave_user_uuid IS NULL
+            """)
+            return [row[0] for row in cursor.fetchall()]
+    
+    @staticmethod
+    def get_user_count() -> dict:
+        """Получает количество пользователей по категориям."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM bot_users")
+            total = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM bot_users WHERE remnawave_user_uuid IS NOT NULL")
+            with_sub = cursor.fetchone()[0]
+            
+            return {
+                'total': total,
+                'with_subscription': with_sub,
+                'without_subscription': total - with_sub
+            }
 
 
 class Referral:

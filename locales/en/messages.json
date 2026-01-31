@@ -773,5 +773,28 @@
     "method_stars": "Stars",
     "method_sbp": "SBP",
     "method_card": "Card"
+  },
+  "broadcast": {
+    "menu_button": "📢 Broadcast",
+    "title": "📢 Message broadcast",
+    "select_target": "Select broadcast recipients:",
+    "target_all": "👥 All users ({count})",
+    "target_active": "✅ With active subscription ({count})",
+    "target_inactive": "❌ Without subscription ({count})",
+    "enter_message": "📝 Send a message for broadcast.\n\nYou can send:\n• Text (HTML supported)\n• Photo with caption\n\n💡 Send /cancel to abort.",
+    "preview_title": "👁 Broadcast preview",
+    "preview_target": "📤 Recipients: {target}",
+    "preview_count": "👥 Count: {count} users",
+    "confirm_send": "Send broadcast?",
+    "btn_confirm": "✅ Send",
+    "btn_cancel": "❌ Cancel",
+    "btn_back": "◀️ Back",
+    "sending": "⏳ Broadcasting...\n\nSent: {sent}/{total}",
+    "completed": "✅ Broadcast completed!\n\n📊 Statistics:\n• Sent: {sent}\n• Errors: {errors}\n• Total: {total}",
+    "cancelled": "❌ Broadcast cancelled.",
+    "no_message": "❌ Please send a message for broadcast first.",
+    "target_all_name": "All users",
+    "target_active_name": "With active subscription",
+    "target_inactive_name": "Without subscription"
   }
 }
