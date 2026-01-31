@@ -2858,6 +2858,9 @@ async def msg_activate_gift_code(message: Message) -> None:
 from src.handlers.state import (
     BROADCAST_DATA,
     BROADCAST_MESSAGE_STATE,
+    clear_user_state,
+    get_user_state,
+    set_user_state,
 )
 
 
