@@ -76,7 +76,6 @@ def bulk_menu_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text=_("actions.bulk_users"), callback_data="menu:bulk_users")],
             [InlineKeyboardButton(text=_("actions.bulk_hosts"), callback_data="menu:bulk_hosts")],
-            [InlineKeyboardButton(text=_("broadcast.menu_button"), callback_data="menu:broadcast")],
             nav_row(NavTarget.MAIN_MENU),
         ]
     )

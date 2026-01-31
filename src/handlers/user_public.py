@@ -66,9 +66,13 @@ def _get_user_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
             )
         ]
     ]
-    # 4️⃣ Админка — только для админа, отдельно
+    # 4️⃣ Админка — только для админа
     if is_admin(user_id):
         buttons.append([
+            InlineKeyboardButton(
+                text=_("broadcast.menu_button"),
+                callback_data="user:broadcast"
+            ),
             InlineKeyboardButton(
                 text=_("user_menu.admin_panel"),
                 callback_data="admin:panel",
@@ -2845,3 +2849,349 @@ async def msg_activate_gift_code(message: Message) -> None:
                 ]]),
                 parse_mode="HTML"
             )
+
+
+# ============================================================
+# РАССЫЛКА СООБЩЕНИЙ (только для админов)
+# ============================================================
+
+from src.handlers.state import (
+    BROADCAST_DATA,
+    BROADCAST_MESSAGE_STATE,
+)
+
+
+def _broadcast_menu_keyboard(user_counts: dict) -> InlineKeyboardMarkup:
+    """Клавиатура выбора получателей рассылки."""
+    buttons = [
+        [InlineKeyboardButton(
+            text=_("broadcast.target_all").format(count=user_counts['total']),
+            callback_data="broadcast:target:all"
+        )],
+        [InlineKeyboardButton(
+            text=_("broadcast.target_active").format(count=user_counts['with_subscription']),
+            callback_data="broadcast:target:active"
+        )],
+        [InlineKeyboardButton(
+            text=_("broadcast.target_inactive").format(count=user_counts['without_subscription']),
+            callback_data="broadcast:target:inactive"
+        )],
+        [InlineKeyboardButton(
+            text=_("user_menu.back"),
+            callback_data="user:menu"
+        )],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def _broadcast_confirm_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура подтверждения рассылки."""
+    buttons = [
+        [
+            InlineKeyboardButton(text=_("broadcast.btn_confirm"), callback_data="broadcast:confirm"),
+            InlineKeyboardButton(text=_("broadcast.btn_cancel"), callback_data="broadcast:cancel"),
+        ],
+        [InlineKeyboardButton(text=_("broadcast.btn_back"), callback_data="user:broadcast")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def _is_admin(user_id: int) -> bool:
+    """Проверяет, является ли пользователь админом."""
+    from src.utils.auth import is_admin
+    return is_admin(user_id)
+
+
+@router.callback_query(F.data == "user:broadcast")
+async def cb_broadcast_menu(callback: CallbackQuery) -> None:
+    """Меню рассылки (только для админов)."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    
+    if not _is_admin(user_id):
+        return
+    
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        # Очищаем предыдущие данные рассылки
+        BROADCAST_DATA.pop(user_id, None)
+        clear_user_state(user_id)
+        
+        user_counts = BotUser.get_user_count()
+        text = f"<b>{_('broadcast.title')}</b>\n\n{_('broadcast.select_target')}"
+        
+        await _safe_edit_or_send(
+            callback,
+            text,
+            _broadcast_menu_keyboard(user_counts),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data.startswith("broadcast:target:"))
+async def cb_broadcast_target(callback: CallbackQuery) -> None:
+    """Выбор целевой аудитории рассылки."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    
+    if not _is_admin(user_id):
+        return
+    
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    target_type = callback.data.split(":")[-1]
+    
+    # Сохраняем тип аудитории
+    BROADCAST_DATA[user_id] = {
+        'target_type': target_type,
+        'message_text': None,
+        'photo_id': None,
+    }
+    
+    # Устанавливаем состояние ожидания сообщения
+    set_user_state(user_id, BROADCAST_MESSAGE_STATE)
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        text = _("broadcast.enter_message")
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=_("broadcast.btn_cancel"), callback_data="broadcast:cancel")]
+        ])
+        await _safe_edit_or_send(callback, text, keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "broadcast:cancel")
+async def cb_broadcast_cancel(callback: CallbackQuery) -> None:
+    """Отмена рассылки."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    
+    if not _is_admin(user_id):
+        return
+    
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    
+    clear_user_state(user_id)
+    BROADCAST_DATA.pop(user_id, None)
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        user_counts = BotUser.get_user_count()
+        await _safe_edit_or_send(
+            callback,
+            _("broadcast.cancelled"),
+            _broadcast_menu_keyboard(user_counts),
+            parse_mode="HTML"
+        )
+
+
+@router.callback_query(F.data == "broadcast:confirm")
+async def cb_broadcast_confirm(callback: CallbackQuery) -> None:
+    """Подтверждение и запуск рассылки."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    
+    if not _is_admin(user_id):
+        return
+    
+    user = BotUser.get_or_create(user_id, callback.from_user.username)
+    locale = user.get("language", "ru")
+    data = BROADCAST_DATA.get(user_id, {})
+    
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        if not data or not data.get('message_text'):
+            await callback.answer(_("broadcast.no_message"), show_alert=True)
+            return
+        
+        target_type = data.get('target_type', 'all')
+        message_text = data.get('message_text', '')
+        photo_id = data.get('photo_id')
+        
+        # Получаем список получателей
+        if target_type == 'all':
+            recipients = BotUser.get_all_user_ids()
+        elif target_type == 'active':
+            recipients = BotUser.get_users_with_subscription()
+        else:
+            recipients = BotUser.get_users_without_subscription()
+        
+        total = len(recipients)
+        sent = 0
+        errors = 0
+        
+        # Очищаем состояние
+        clear_user_state(user_id)
+        BROADCAST_DATA.pop(user_id, None)
+        
+        # Обновляем сообщение на статус отправки
+        status_msg = await callback.message.edit_text(
+            _("broadcast.sending").format(sent=0, total=total),
+            parse_mode="HTML"
+        )
+        
+        bot = callback.message.bot
+        
+        import asyncio
+        # Отправляем сообщения с задержкой
+        for i, recipient_id in enumerate(recipients):
+            try:
+                if photo_id:
+                    await bot.send_photo(
+                        chat_id=recipient_id,
+                        photo=photo_id,
+                        caption=message_text,
+                        parse_mode="HTML"
+                    )
+                else:
+                    await bot.send_message(
+                        chat_id=recipient_id,
+                        text=message_text,
+                        parse_mode="HTML"
+                    )
+                sent += 1
+            except Exception as e:
+                errors += 1
+                logger.debug(f"Broadcast error for user {recipient_id}: {e}")
+            
+            # Обновляем статус каждые 10 сообщений
+            if (i + 1) % 10 == 0:
+                try:
+                    await status_msg.edit_text(
+                        _("broadcast.sending").format(sent=sent, total=total),
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+            
+            # Задержка между сообщениями
+            await asyncio.sleep(0.05)
+        
+        result_text = _("broadcast.completed").format(
+            sent=sent,
+            errors=errors,
+            total=total
+        )
+        
+        try:
+            await status_msg.edit_text(
+                result_text,
+                reply_markup=_get_user_menu_keyboard(user_id),
+                parse_mode="HTML"
+            )
+        except Exception:
+            await callback.message.answer(
+                result_text,
+                reply_markup=_get_user_menu_keyboard(user_id),
+                parse_mode="HTML"
+            )
+
+
+@router.message(F.photo)
+async def msg_broadcast_photo(message: Message) -> None:
+    """Получение фото для рассылки."""
+    user_id = message.from_user.id
+    
+    if not _is_admin(user_id):
+        return
+    
+    state = get_user_state(user_id)
+    if state != BROADCAST_MESSAGE_STATE:
+        return
+    
+    if user_id not in BROADCAST_DATA:
+        return
+    
+    user = BotUser.get_or_create(user_id, message.from_user.username)
+    locale = user.get("language", "ru")
+    
+    # Сохраняем фото и подпись
+    BROADCAST_DATA[user_id]['photo_id'] = message.photo[-1].file_id
+    BROADCAST_DATA[user_id]['message_text'] = message.caption or ""
+    
+    # Показываем превью
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        await _show_broadcast_preview(message, user_id)
+
+
+@router.message(F.text)
+async def msg_broadcast_text(message: Message) -> None:
+    """Получение текста для рассылки."""
+    user_id = message.from_user.id
+    
+    if not _is_admin(user_id):
+        return
+    
+    state = get_user_state(user_id)
+    if state != BROADCAST_MESSAGE_STATE:
+        return
+    
+    if user_id not in BROADCAST_DATA:
+        return
+    
+    # Игнорируем команды
+    if message.text.startswith('/'):
+        return
+    
+    user = BotUser.get_or_create(user_id, message.from_user.username)
+    locale = user.get("language", "ru")
+    
+    # Сохраняем текст
+    BROADCAST_DATA[user_id]['message_text'] = message.text
+    
+    # Показываем превью
+    i18n = get_i18n()
+    with i18n.use_locale(locale):
+        await _show_broadcast_preview(message, user_id)
+
+
+async def _show_broadcast_preview(message: Message, admin_id: int) -> None:
+    """Показывает превью рассылки."""
+    data = BROADCAST_DATA.get(admin_id, {})
+    target_type = data.get('target_type', 'all')
+    
+    # Получаем название аудитории
+    target_names = {
+        'all': _("broadcast.target_all_name"),
+        'active': _("broadcast.target_active_name"),
+        'inactive': _("broadcast.target_inactive_name"),
+    }
+    target_name = target_names.get(target_type, target_type)
+    
+    # Получаем количество получателей
+    if target_type == 'all':
+        recipients = BotUser.get_all_user_ids()
+    elif target_type == 'active':
+        recipients = BotUser.get_users_with_subscription()
+    else:
+        recipients = BotUser.get_users_without_subscription()
+    
+    count = len(recipients)
+    
+    preview_text = f"<b>{_('broadcast.preview_title')}</b>\n\n"
+    preview_text += f"{_('broadcast.preview_target').format(target=target_name)}\n"
+    preview_text += f"{_('broadcast.preview_count').format(count=count)}\n\n"
+    preview_text += f"<b>📝 Сообщение:</b>\n"
+    preview_text += "━━━━━━━━━━━━━━━━━━━━\n"
+    preview_text += data.get('message_text', '') or "<i>Без текста</i>"
+    preview_text += "\n━━━━━━━━━━━━━━━━━━━━\n\n"
+    preview_text += _("broadcast.confirm_send")
+    
+    if data.get('photo_id'):
+        await message.answer_photo(
+            photo=data['photo_id'],
+            caption=preview_text,
+            reply_markup=_broadcast_confirm_keyboard(),
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer(
+            preview_text,
+            reply_markup=_broadcast_confirm_keyboard(),
+            parse_mode="HTML"
+        )
