@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Caddy - веб-сервер с автоматическим SSL
+  caddy:
+    image: caddy:2-alpine
+    container_name: shftsecure-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend/dist:/srv/mini-app:ro  # Собранный фронтенд
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    environment:
+      - DOMAIN=app.shftsecure.one
+    networks:
+      - web
+
+  # Сборка фронтенда (одноразово)
+  # Можно использовать для CI/CD
+  builder:
+    image: node:20-alpine
+    container_name: shftsecure-builder
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm ci && npm run build"
+    profiles:
+      - build  # Запускается только с --profile build
+
+volumes:
+  caddy_data:
+    name: shftsecure_caddy_data
+  caddy_config:
+    name: shftsecure_caddy_config
+  caddy_logs:
+    name: shftsecure_caddy_logs
+
+networks:
+  web:
+    name: shftsecure_web
+

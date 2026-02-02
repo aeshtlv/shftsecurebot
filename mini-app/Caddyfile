@@ -1,0 +1,39 @@
+# Caddy configuration for SHFT Secure Mini App
+# Автоматически получает SSL сертификат от Let's Encrypt
+
+# Mini App на поддомене
+app.shftsecure.one {
+    # Раздаём собранный фронтенд
+    root * /srv/mini-app
+    file_server
+    
+    # SPA fallback - все роуты направляем на index.html
+    try_files {path} /index.html
+    
+    # Заголовки безопасности
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options ALLOW-FROM https://web.telegram.org
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+    
+    # Кэширование статики
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+    
+    # Gzip сжатие
+    encode gzip
+    
+    # Логи
+    log {
+        output file /var/log/caddy/mini-app.log
+    }
+}
+
+# API прокси (опционально, если API на том же сервере)
+# api.shftsecure.one {
+#     reverse_proxy localhost:8080
+# }
+
