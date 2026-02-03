@@ -14,7 +14,7 @@ export const SUBSCRIPTION_PLANS = [
     months: 3,
     period: '3 месяца',
     price: 299,
-    traffic: 'Популярный выбор ⭐',
+    traffic: 'Популярный выбор',
     trafficBytes: 300 * 1024 * 1024 * 1024,
     popular: true,
   },
