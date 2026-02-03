@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Copy, QrCode, Share2, Calendar, Zap, Crown, Users, AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { formatBytes, pluralize, haptic } from '../lib/utils';
 import { LOYALTY_COLORS, getLoyaltyLevel, LOYALTY_DISCOUNTS } from '../config/pricing';
 import { useUserProfile } from '../hooks/useApi';
@@ -13,6 +14,7 @@ export function Dashboard() {
   const handleCopyConfig = async () => {
     if (!profile?.subscription?.subscriptionUrl) {
       haptic('error');
+      toast.error('Нет активной подписки');
       return;
     }
     
@@ -20,6 +22,7 @@ export function Dashboard() {
       await navigator.clipboard.writeText(profile.subscription.subscriptionUrl);
       haptic('success');
       setCopied('config');
+      toast.success('Конфиг скопирован!', { duration: 2000 });
       setTimeout(() => setCopied(null), 2000);
     } catch {
       // Fallback для старых браузеров
@@ -31,6 +34,7 @@ export function Dashboard() {
       document.body.removeChild(textArea);
       haptic('success');
       setCopied('config');
+      toast.success('Конфиг скопирован!', { duration: 2000 });
       setTimeout(() => setCopied(null), 2000);
     }
   };
@@ -51,6 +55,7 @@ export function Dashboard() {
   const handleShare = async () => {
     if (!profile?.referralLink) {
       haptic('error');
+      toast.error('Реферальная ссылка недоступна');
       return;
     }
 
@@ -64,6 +69,7 @@ export function Dashboard() {
           text: shareText,
         });
         haptic('success');
+        toast.success('Ссылка отправлена!');
         return;
       } catch {
         // Пользователь отменил или ошибка
@@ -75,9 +81,11 @@ export function Dashboard() {
       await navigator.clipboard.writeText(profile.referralLink);
       haptic('success');
       setCopied('link');
+      toast.success('Реферальная ссылка скопирована!', { duration: 2000 });
       setTimeout(() => setCopied(null), 2000);
     } catch {
       haptic('error');
+      toast.error('Не удалось скопировать ссылку');
     }
   };
 

@@ -347,9 +347,9 @@ async def create_payment(request: web.Request) -> web.Response:
                 payment_data = await create_yookassa_gift_payment(user.id, months, method)
                 return web.json_response({
                     'success': True,
+                    'paymentId': str(payment_data.get('payment_db_id')),
                     'paymentUrl': payment_data.get('payment_url'),
                     'method': method,
-                    'paymentDbId': payment_data.get('payment_db_id'),
                 })
         else:
             from src.services.payment_service import create_subscription_invoice
@@ -368,9 +368,9 @@ async def create_payment(request: web.Request) -> web.Response:
                 payment_data = await create_yookassa_payment(user.id, months, method)
                 return web.json_response({
                     'success': True,
+                    'paymentId': str(payment_data.get('payment_db_id')),
                     'paymentUrl': payment_data.get('payment_url'),
                     'method': method,
-                    'paymentDbId': payment_data.get('payment_db_id'),
                 })
                 
     except ValueError as e:

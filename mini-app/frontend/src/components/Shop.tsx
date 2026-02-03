@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Star, CreditCard, Smartphone, Loader2, AlertCircle, Crown } from 'lucide-react';
+import { toast } from 'sonner';
 import { haptic } from '../lib/utils';
 import { 
   SUBSCRIPTION_PLANS, 
@@ -9,7 +10,7 @@ import {
   LOYALTY_COLORS 
 } from '../config/pricing';
 import { useUserProfile } from '../hooks/useApi';
-import { createPayment } from '../api/client';
+import { createPayment, checkPaymentStatus } from '../api/client';
 
 type PaymentMethod = 'stars' | 'sbp' | 'card';
 
@@ -20,7 +21,7 @@ const paymentMethods: { id: PaymentMethod; name: string; icon: React.ReactNode; 
 ];
 
 export function Shop() {
-  const { data: profile, loading: profileLoading } = useUserProfile();
+  const { data: profile, loading: profileLoading, refetch } = useUserProfile();
   const [selectedPlan, setSelectedPlan] = useState('3m');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('stars');
   const [processing, setProcessing] = useState(false);
@@ -30,6 +31,38 @@ export function Shop() {
   const loyaltyLevel = getLoyaltyLevel(currentUserPoints);
   const discount = LOYALTY_DISCOUNTS[loyaltyLevel];
   const levelColor = LOYALTY_COLORS[loyaltyLevel];
+
+  // Проверяем статус платежа при возврате в Mini App
+  useEffect(() => {
+    const checkPendingPayment = async () => {
+      const pendingPaymentId = sessionStorage.getItem('pending_payment_id');
+      if (!pendingPaymentId) return;
+
+      try {
+        const result = await checkPaymentStatus(pendingPaymentId);
+        if (result.status === 'completed') {
+          sessionStorage.removeItem('pending_payment_id');
+          haptic('success');
+          toast.success('🎉 Подписка успешно активирована!', {
+            description: 'Спасибо за покупку! Ваша подписка уже активна.',
+            duration: 5000,
+          });
+          // Обновляем данные профиля
+          refetch();
+        } else if (result.status === 'failed') {
+          sessionStorage.removeItem('pending_payment_id');
+          toast.error('Ошибка оплаты', {
+            description: 'К сожалению, платёж не прошёл. Попробуйте ещё раз.',
+          });
+        }
+      } catch (e) {
+        // Платёж ещё в обработке или не найден
+        console.error('Payment check error:', e);
+      }
+    };
+
+    checkPendingPayment();
+  }, [refetch]);
 
   const handlePurchase = async () => {
     setProcessing(true);
@@ -42,22 +75,43 @@ export function Shop() {
         throw new Error('План не найден');
       }
 
+      toast.loading('Создание платежа...', { id: 'payment-creation' });
+
       const result = await createPayment(plan.months, selectedMethod, false);
       
       if (result.success && result.paymentUrl) {
+        toast.dismiss('payment-creation');
         haptic('success');
-        // Открываем URL оплаты через Telegram WebApp
-        if (window.Telegram?.WebApp?.openLink) {
-          window.Telegram.WebApp.openLink(result.paymentUrl);
-        } else {
-          window.open(result.paymentUrl, '_blank');
+        
+        // Сохраняем ID платежа для проверки статуса после возврата
+        if (result.paymentId) {
+          sessionStorage.setItem('pending_payment_id', result.paymentId);
         }
+        
+        // Показываем уведомление перед открытием оплаты
+        toast.info('Переход к оплате...', {
+          description: 'Завершите оплату и вернитесь в Mini App',
+          duration: 3000,
+        });
+        
+        // Открываем URL оплаты через Telegram WebApp
+        setTimeout(() => {
+          if (window.Telegram?.WebApp?.openLink) {
+            window.Telegram.WebApp.openLink(result.paymentUrl!);
+          } else {
+            window.open(result.paymentUrl, '_blank');
+          }
+        }, 500);
       } else {
+        toast.dismiss('payment-creation');
         throw new Error(result.error || 'Ошибка создания платежа');
       }
     } catch (e) {
+      toast.dismiss('payment-creation');
       haptic('error');
-      setError(e instanceof Error ? e.message : 'Произошла ошибка');
+      const errorMessage = e instanceof Error ? e.message : 'Произошла ошибка';
+      setError(errorMessage);
+      toast.error('Ошибка', { description: errorMessage });
     } finally {
       setProcessing(false);
     }

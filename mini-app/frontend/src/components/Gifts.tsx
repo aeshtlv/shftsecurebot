@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Gift, Copy, Check, Plus, Clock, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { haptic } from '../lib/utils';
 import { SUBSCRIPTION_PLANS, getLoyaltyLevel, getDiscountedPrice } from '../config/pricing';
 import { useGifts, useUserProfile } from '../hooks/useApi';
@@ -24,9 +25,11 @@ export function Gifts() {
       await navigator.clipboard.writeText(code);
       haptic('success');
       setCopiedCode(code);
+      toast.success('Код скопирован!', { duration: 2000 });
       setTimeout(() => setCopiedCode(null), 2000);
     } catch {
       haptic('error');
+      toast.error('Не удалось скопировать');
     }
   };
 
@@ -41,17 +44,26 @@ export function Gifts() {
     try {
       const result = await activateGiftCode(activateCode.trim());
       if (result.success) {
-        setActivateSuccess(`Подарок активирован! Подписка до ${result.expireDate}`);
+        const message = `Подарок активирован! Подписка до ${result.expireDate}`;
+        setActivateSuccess(message);
         setActivateCode('');
         haptic('success');
+        toast.success('🎁 Подарок активирован!', {
+          description: `Подписка продлена до ${result.expireDate}`,
+          duration: 5000,
+        });
         refetch();
       } else {
-        setActivateError(result.error || 'Не удалось активировать код');
+        const error = result.error || 'Не удалось активировать код';
+        setActivateError(error);
         haptic('error');
+        toast.error('Ошибка активации', { description: error });
       }
     } catch (e) {
-      setActivateError(e instanceof Error ? e.message : 'Ошибка активации');
+      const error = e instanceof Error ? e.message : 'Ошибка активации';
+      setActivateError(error);
       haptic('error');
+      toast.error('Ошибка активации', { description: error });
     } finally {
       setActivating(false);
     }

@@ -82,6 +82,7 @@ export interface ActivateGiftResponse {
 
 export interface CreatePaymentResponse {
   success: boolean;
+  paymentId?: string;
   paymentUrl?: string;
   invoiceLink?: string;
   error?: string;

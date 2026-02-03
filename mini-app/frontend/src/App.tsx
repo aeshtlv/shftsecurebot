@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Home, Award, ShoppingBag, Gift, Clock, HelpCircle } from 'lucide-react';
+import { Toaster } from 'sonner';
 import { Dashboard } from './components/Dashboard';
 import { Loyalty } from './components/Loyalty';
 import { Shop } from './components/Shop';
@@ -39,6 +40,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white pb-20">
+      {/* Toast Notifications */}
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+          style: {
+            background: '#1A1A1A',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+          },
+        }}
+      />
+      
       <main className="pb-4">
         {renderContent()}
       </main>
