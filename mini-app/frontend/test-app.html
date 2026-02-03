@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini App Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #0F0F0F;
+            color: white;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .success { background: #10B981; }
+        .error { background: #EF4444; }
+        .warning { background: #F59E0B; }
+    </style>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <h1>🔍 Mini App Diagnostic</h1>
+    
+    <div id="results"></div>
+    
+    <script>
+        const results = [];
+        
+        // Test 1: Telegram WebApp SDK
+        if (window.Telegram && window.Telegram.WebApp) {
+            results.push({ status: 'success', text: '✅ Telegram WebApp SDK loaded' });
+            
+            // Test 2: InitData
+            if (window.Telegram.WebApp.initData) {
+                results.push({ status: 'success', text: '✅ InitData present' });
+            } else {
+                results.push({ status: 'warning', text: '⚠️ No InitData (normal for browser)' });
+            }
+            
+            // Test 3: User data
+            if (window.Telegram.WebApp.initDataUnsafe?.user) {
+                const user = window.Telegram.WebApp.initDataUnsafe.user;
+                results.push({ status: 'success', text: `✅ User: ${user.first_name} (ID: ${user.id})` });
+            } else {
+                results.push({ status: 'warning', text: '⚠️ No user data (normal for browser)' });
+            }
+        } else {
+            results.push({ status: 'error', text: '❌ Telegram WebApp SDK not loaded!' });
+        }
+        
+        // Test 4: Try to load main app script
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = '/assets/index-Bs_9sKc6.js';
+        script.onload = () => {
+            results.push({ status: 'success', text: '✅ Main app script loaded' });
+            displayResults();
+        };
+        script.onerror = (e) => {
+            results.push({ status: 'error', text: '❌ Failed to load main app script: ' + e });
+            displayResults();
+        };
+        document.head.appendChild(script);
+        
+        // Test 5: Load CSS
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '/assets/index-BrtEFORk.css';
+        link.onload = () => {
+            results.push({ status: 'success', text: '✅ Styles loaded' });
+            displayResults();
+        };
+        link.onerror = () => {
+            results.push({ status: 'error', text: '❌ Failed to load styles' });
+            displayResults();
+        };
+        document.head.appendChild(link);
+        
+        function displayResults() {
+            const container = document.getElementById('results');
+            container.innerHTML = results.map(r => 
+                `<div class="status ${r.status}">${r.text}</div>`
+            ).join('');
+        }
+        
+        // Display initial results
+        setTimeout(displayResults, 100);
+    </script>
+    
+    <div id="root"></div>
+</body>
+</html>
+
