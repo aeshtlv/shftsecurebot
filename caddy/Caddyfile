@@ -4,16 +4,16 @@
 # - app.shftsecure.one → Mini App (frontend + API)
 
 app.shftsecure.one {
-    # Frontend (статика из mini-app/frontend/dist)
-    root * /srv/mini-app
-    file_server
-    
-    # SPA fallback - все несуществующие пути → index.html
-    try_files {path} /index.html
-    
-    # API проксируем на бота (порт 8080)
+    # API проксируем на бота (порт 8080) - СНАЧАЛА!
     handle /api/* {
         reverse_proxy localhost:8080
+    }
+    
+    # Frontend (статика из mini-app/frontend/dist)
+    handle {
+        root * /srv/mini-app
+        try_files {path} /index.html
+        file_server
     }
     
     # Заголовки безопасности
@@ -32,4 +32,3 @@ app.shftsecure.one {
         format console
     }
 }
-
