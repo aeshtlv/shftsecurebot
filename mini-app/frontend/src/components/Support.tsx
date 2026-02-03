@@ -51,8 +51,8 @@ export function Support() {
               <Clock className="w-6 h-6 text-[#10B981]" />
             </div>
             <div>
-              <p className="font-semibold">Поддержка 24/7</p>
-              <p className="text-sm text-[#6B7280]">Помогаем круглосуточно без выходных</p>
+              <p className="font-semibold">Быстрый ответ</p>
+              <p className="text-sm text-[#6B7280]">Отвечаем в течение 15 минут</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -60,8 +60,8 @@ export function Support() {
               <Zap className="w-6 h-6 text-[#6366F1]" />
             </div>
             <div>
-              <p className="font-semibold">Максимальная скорость</p>
-              <p className="text-sm text-[#6B7280]">До 1 Гбит/с на премиум серверах</p>
+              <p className="font-semibold">Высокая скорость</p>
+              <p className="text-sm text-[#6B7280]">Серверы в 10+ странах мира</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -69,8 +69,8 @@ export function Support() {
               <Shield className="w-6 h-6 text-[#F59E0B]" />
             </div>
             <div>
-              <p className="font-semibold">Полная приватность</p>
-              <p className="text-sm text-[#6B7280]">Без логов и отслеживания активности</p>
+              <p className="font-semibold">Безопасность</p>
+              <p className="text-sm text-[#6B7280]">Шифрование всего трафика</p>
             </div>
           </div>
         </div>
@@ -107,24 +107,20 @@ export function Support() {
         </h3>
         <div className="space-y-3">
           <FAQItem
-            question="Как настроить VPN на телефоне?"
-            answer="Скопируйте конфиг на главной странице или отсканируйте QR-код. Вставьте конфиг в приложение v2rayTun (Android) или Happ (iOS). Для компьютера используйте Hiddify Next или v2rayN."
+            question="Как подключить VPN?"
+            answer="Скопируйте конфиг на главной странице и вставьте его в любое приложение для VPN: v2rayNG (Android), Streisand (iOS), Hiddify (Windows/Mac)."
           />
           <FAQItem
-            question="Что делать, если VPN не подключается?"
-            answer="Проверьте интернет-соединение, попробуйте переподключиться. Убедитесь, что подписка активна. Если проблема сохраняется — напишите в поддержку, мы поможем в течение 5-10 минут."
+            question="Как продлить подписку?"
+            answer="Перейдите в раздел 'Магазин' и выберите нужный тариф. Если у вас включено автопродление, подписка продлится автоматически."
           />
           <FAQItem
-            question="Можно ли использовать на нескольких устройствах?"
-            answer="Да! Один конфиг работает на всех ваших устройствах одновременно: телефон, планшет, компьютер. Скопируйте конфиг или отсканируйте QR-код на каждом устройстве."
+            question="Как работают рефералы?"
+            answer="Пригласите друга по вашей реферальной ссылке. Когда он оформит подписку, вы получите +3 дня к вашей подписке."
           />
           <FAQItem
-            question="Как активировать подарочный код?"
-            answer="Перейдите во вкладку 'Подарки', введите полученный код и нажмите 'Активировать'. Дни подписки добавятся автоматически к вашему аккаунту."
-          />
-          <FAQItem
-            question="Как работает программа лояльности?"
-            answer="За каждый потраченный рубль вы получаете 1 балл. Достигайте новых статусов (Silver, Gold, Platinum) и получайте скидки до 15% на все покупки."
+            question="Что даёт программа лояльности?"
+            answer="За каждый потраченный рубль вы получаете 1 балл. Накапливайте баллы и получайте скидки до 15% на все покупки."
           />
         </div>
       </div>
@@ -132,10 +128,10 @@ export function Support() {
       {/* Bottom Info */}
       <div className="rounded-2xl bg-[#1A1A1A]/50 p-4 border border-white/5 text-center">
         <p className="text-sm text-[#6B7280]">
-          shftsecure — сервис защищенного интернет-соединения
+          shftsecure VPN — быстрый и безопасный доступ в интернет
         </p>
         <p className="text-xs text-[#6B7280]/60 mt-1">
-          © 2025-2026 shftsecure
+          © 2024-2026 shftsecure
         </p>
       </div>
     </div>
