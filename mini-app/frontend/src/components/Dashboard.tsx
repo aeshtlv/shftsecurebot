@@ -59,13 +59,13 @@ export function Dashboard() {
       return;
     }
 
-    const shareText = `🔒 Попробуй shftsecure — быстрый и надёжный VPN!\n\nПерейди по ссылке и получи бонус:\n${profile.referralLink}`;
+    const shareText = `🔒 Попробуй shftsecure — сервис защищенного интернет-соединения!\n\nПерейди по ссылке и получи бонус:\n${profile.referralLink}`;
 
     // Пробуем нативный Share API
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'shftsecure VPN',
+          title: 'shftsecure',
           text: shareText,
         });
         haptic('success');

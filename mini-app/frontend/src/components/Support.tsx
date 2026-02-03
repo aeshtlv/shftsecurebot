@@ -1,4 +1,4 @@
-import { MessageCircle, Mail, ChevronRight, Shield, Zap } from 'lucide-react';
+import { MessageCircle, Mail, ChevronRight, Shield, Zap, Clock } from 'lucide-react';
 import { haptic } from '../lib/utils';
 
 export function Support() {
@@ -48,11 +48,11 @@ export function Support() {
         <div className="grid grid-cols-1 gap-3">
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#10B981]/20 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-[#10B981]" />
+              <Clock className="w-6 h-6 text-[#10B981]" />
             </div>
             <div>
-              <p className="font-semibold">Глобальный доступ</p>
-              <p className="text-sm text-[#6B7280]">Надёжное соединение по всему миру</p>
+              <p className="font-semibold">Простое подключение</p>
+              <p className="text-sm text-[#6B7280]">Быстрая настройка без сложных шагов</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -60,8 +60,8 @@ export function Support() {
               <Zap className="w-6 h-6 text-[#6366F1]" />
             </div>
             <div>
-              <p className="font-semibold">Простое подключение</p>
-              <p className="text-sm text-[#6B7280]">Быстрая настройка без сложных шагов</p>
+              <p className="font-semibold">Глобальный доступ</p>
+              <p className="text-sm text-[#6B7280]">Надёжное соединение по всему миру</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -128,10 +128,10 @@ export function Support() {
       {/* Bottom Info */}
       <div className="rounded-2xl bg-[#1A1A1A]/50 p-4 border border-white/5 text-center">
         <p className="text-sm text-[#6B7280]">
-          shftsecure VPN — быстрый и безопасный доступ в интернет
+          shftsecure — сервис защищенного интернет-соединения
         </p>
         <p className="text-xs text-[#6B7280]/60 mt-1">
-          © 2024-2026 shftsecure
+          © 2025-2026 shftsecure
         </p>
       </div>
     </div>
