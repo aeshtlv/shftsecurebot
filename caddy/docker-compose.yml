@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../mini-app/frontend/dist:/srv/mini-app:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/log/caddy:/var/log/caddy
+    network_mode: host  # Чтобы иметь доступ к localhost:8080 (бот)
+    
+volumes:
+  caddy_data:
+  caddy_config:
+

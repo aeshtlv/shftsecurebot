@@ -1,0 +1,35 @@
+# Caddy configuration for shftsecure Mini App
+# 
+# Обслуживает:
+# - app.shftsecure.one → Mini App (frontend + API)
+
+app.shftsecure.one {
+    # Frontend (статика из mini-app/frontend/dist)
+    root * /srv/mini-app
+    file_server
+    
+    # SPA fallback - все несуществующие пути → index.html
+    try_files {path} /index.html
+    
+    # API проксируем на бота (порт 8080)
+    handle /api/* {
+        reverse_proxy localhost:8080
+    }
+    
+    # Заголовки безопасности
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+    
+    # Сжатие
+    encode gzip
+    
+    # Логи
+    log {
+        output file /var/log/caddy/app.log
+        format console
+    }
+}
+

@@ -9,8 +9,12 @@ from .auth import validate_init_data, TelegramUser
 from src.config import get_settings
 from src.database import BotUser, Loyalty, Payment, GiftCode
 from src.services.api_client import api_client, NotFoundError, ApiClientError
-from src.services.loyalty_service import get_price_with_discount, LOYALTY_THRESHOLDS, LOYALTY_DISCOUNTS
+from src.services.loyalty_service import get_price_with_discount
 from src.utils.logger import logger
+
+# Константы лояльности из класса Loyalty
+LOYALTY_THRESHOLDS = Loyalty.THRESHOLDS
+LOYALTY_DISCOUNTS = Loyalty.DISCOUNTS
 
 routes = web.RouteTableDef()
 
