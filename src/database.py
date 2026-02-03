@@ -672,12 +672,13 @@ class Loyalty:
             
             # Получаем текущие данные
             cursor.execute(
-                "SELECT loyalty_points, total_spent FROM bot_users WHERE telegram_id = ?",
+                "SELECT loyalty_points, total_spent, loyalty_status FROM bot_users WHERE telegram_id = ?",
                 (telegram_id,)
             )
             row = cursor.fetchone()
             current_points = (row['loyalty_points'] or 0) if row else 0
             total_spent = (row['total_spent'] or 0) if row else 0
+            previous_status = (row['loyalty_status'] or 'bronze') if row else 'bronze'
             
             # Добавляем баллы (1 рубль = 1 балл)
             new_points = current_points + amount_rub
@@ -702,7 +703,7 @@ class Loyalty:
                 'points': new_points,
                 'status': new_status,
                 'total_spent': new_total_spent,
-                'previous_status': row['loyalty_status'] if row and row['loyalty_status'] else 'bronze'
+                'previous_status': previous_status
             }
     
     @staticmethod

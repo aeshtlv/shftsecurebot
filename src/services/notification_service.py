@@ -43,7 +43,8 @@ async def send_admin_notification(
         return True
         
     except Exception as e:
-        logger.exception("Failed to send admin notification: %s", e)
+        # Не критичная ошибка - просто не настроен чат для уведомлений
+        logger.warning("Failed to send admin notification: %s", str(e))
         return False
 
 
