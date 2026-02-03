@@ -600,6 +600,17 @@ class GiftCode:
             )
             return [dict(row) for row in cursor.fetchall()]
 
+    @staticmethod
+    def get_received_gifts(recipient_id: int) -> list:
+        """Получает подарочные коды, активированные пользователем (полученные подарки)."""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM gift_codes WHERE recipient_id = ? AND status = 'used' ORDER BY activated_at DESC",
+                (recipient_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
 
 class Loyalty:
     """Система лояльности."""

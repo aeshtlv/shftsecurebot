@@ -125,6 +125,16 @@ async def main() -> None:
     renewal_task = asyncio.create_task(start_renewal_checker(bot, interval_hours=6))
     logger.info("🔄 Renewal checker started (interval: 6 hours)")
 
+    # Запускаем Mini App API сервер
+    webapp_server = None
+    webapp_port = int(os.getenv('WEBAPP_PORT', '8080'))
+    if os.getenv('WEBAPP_ENABLED', 'false').lower() == 'true':
+        try:
+            from src.webapp.server import start_webapp_server
+            webapp_server = await start_webapp_server(settings.bot_token, bot, webapp_port)
+        except Exception as e:
+            logger.error(f"Failed to start Mini App server: {e}")
+
     logger.info("Starting bot")
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
@@ -135,6 +145,11 @@ async def main() -> None:
             await renewal_task
         except asyncio.CancelledError:
             logger.info("🔄 Renewal checker stopped")
+        
+        # Останавливаем Mini App сервер
+        if webapp_server:
+            from src.webapp.server import stop_webapp_server
+            await stop_webapp_server()
 
 
 if __name__ == "__main__":
