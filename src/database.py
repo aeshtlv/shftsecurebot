@@ -14,11 +14,16 @@ DATA_DIR.mkdir(exist_ok=True)  # Создаем директорию, если �
 DB_PATH = DATA_DIR / "bot_data.db"
 
 
+def dict_factory(cursor, row):
+    """Преобразует результаты запроса в dict."""
+    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+
+
 @contextmanager
 def get_db_connection():
     """Контекстный менеджер для работы с БД."""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = dict_factory
     try:
         yield conn
         conn.commit()
