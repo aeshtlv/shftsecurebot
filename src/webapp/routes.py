@@ -97,16 +97,9 @@ async def get_user_profile(request: web.Request) -> web.Response:
         purchased_gifts = GiftCode.get_user_gifts(user.id)
         received_gifts = GiftCode.get_received_gifts(user.id) if hasattr(GiftCode, 'get_received_gifts') else []
         
-        # Вычисляем статус лояльности и скидку
-        points = loyalty_data.get('loyalty_points', 0)
-        loyalty_status = 'bronze'
-        if points >= LOYALTY_THRESHOLDS['platinum']:
-            loyalty_status = 'platinum'
-        elif points >= LOYALTY_THRESHOLDS['gold']:
-            loyalty_status = 'gold'
-        elif points >= LOYALTY_THRESHOLDS['silver']:
-            loyalty_status = 'silver'
-        
+        # Получаем данные лояльности
+        points = loyalty_data.get('points', 0)
+        loyalty_status = loyalty_data.get('status', 'bronze')
         discount = LOYALTY_DISCOUNTS.get(loyalty_status, 0)
         
         return web.json_response({
