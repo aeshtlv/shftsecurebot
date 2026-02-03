@@ -10,7 +10,6 @@ import type {
   CreatePaymentResponse,
   PaymentStatusResponse
 } from './types';
-import '../types/telegram.d.ts';
 
 // Получаем initData из Telegram WebApp
 function getInitData(): string {

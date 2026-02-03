@@ -1,7 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
-import './types/telegram.d.ts';
 
 // Инициализируем Telegram WebApp
 if (window.Telegram?.WebApp) {
