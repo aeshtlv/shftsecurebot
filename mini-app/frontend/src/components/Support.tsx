@@ -1,4 +1,4 @@
-import { MessageCircle, Mail, ChevronRight, Shield, Zap, Clock } from 'lucide-react';
+import { MessageCircle, Mail, ChevronRight, Shield, Zap } from 'lucide-react';
 import { haptic } from '../lib/utils';
 
 export function Support() {
@@ -48,11 +48,11 @@ export function Support() {
         <div className="grid grid-cols-1 gap-3">
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#10B981]/20 flex items-center justify-center">
-              <Clock className="w-6 h-6 text-[#10B981]" />
+              <Zap className="w-6 h-6 text-[#10B981]" />
             </div>
             <div>
-              <p className="font-semibold">Быстрый ответ</p>
-              <p className="text-sm text-[#6B7280]">Отвечаем в течение 15 минут</p>
+              <p className="font-semibold">Глобальный доступ</p>
+              <p className="text-sm text-[#6B7280]">Надёжное соединение по всему миру</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -60,8 +60,8 @@ export function Support() {
               <Zap className="w-6 h-6 text-[#6366F1]" />
             </div>
             <div>
-              <p className="font-semibold">Высокая скорость</p>
-              <p className="text-sm text-[#6B7280]">Серверы в 10+ странах мира</p>
+              <p className="font-semibold">Простое подключение</p>
+              <p className="text-sm text-[#6B7280]">Быстрая настройка без сложных шагов</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -69,8 +69,8 @@ export function Support() {
               <Shield className="w-6 h-6 text-[#F59E0B]" />
             </div>
             <div>
-              <p className="font-semibold">Безопасность</p>
-              <p className="text-sm text-[#6B7280]">Шифрование всего трафика</p>
+              <p className="font-semibold">Приватность</p>
+              <p className="text-sm text-[#6B7280]">Мы не храним ваши логи</p>
             </div>
           </div>
         </div>
