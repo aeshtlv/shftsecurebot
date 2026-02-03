@@ -464,6 +464,12 @@ async def check_payment_status(request: web.Request) -> web.Response:
 
 # ==================== Webhook API ====================
 
+@routes.get('/webhook/yookassa')
+async def yookassa_webhook_health(request: web.Request) -> web.Response:
+    """Проверка доступности вебхука (для YooKassa)."""
+    return web.json_response({'status': 'ok', 'service': 'shftsecure webhook'})
+
+
 @routes.post('/webhook/yookassa')
 async def yookassa_webhook(request: web.Request) -> web.Response:
     """Обрабатывает вебхуки от YooKassa."""
