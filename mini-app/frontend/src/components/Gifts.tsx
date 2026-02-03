@@ -1,47 +1,86 @@
 import { useState } from 'react';
-import { Gift, Copy, Check, Plus, Clock, CheckCircle2 } from 'lucide-react';
+import { Gift, Copy, Check, Plus, Clock, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { haptic } from '../lib/utils';
 import { SUBSCRIPTION_PLANS, getLoyaltyLevel, getDiscountedPrice } from '../config/pricing';
-
-// TODO: Get from API
-const mockPurchasedGifts = [
-  { id: 1, code: 'GIFT-ABC123-XYZ', days: 30, status: 'active', createdAt: '2026-01-15' },
-  { id: 2, code: 'GIFT-DEF456-QRS', days: 90, status: 'used', createdAt: '2025-12-20', activatedAt: '2025-12-25' },
-];
-
-const mockReceivedGifts = [
-  { id: 1, code: 'GIFT-GHI789-TUV', days: 30, fromUser: '@friend', activatedAt: '2026-01-10' },
-];
-
-const currentUserPoints = 850;
+import { useGifts, useUserProfile } from '../hooks/useApi';
+import { activateGiftCode } from '../api/client';
 
 export function Gifts() {
+  const { data: profile } = useUserProfile();
+  const { purchased, received, loading, error, refetch } = useGifts();
   const [activeTab, setActiveTab] = useState<'purchase' | 'my' | 'received'>('purchase');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState('1m');
   const [activateCode, setActivateCode] = useState('');
+  const [activating, setActivating] = useState(false);
+  const [activateError, setActivateError] = useState<string | null>(null);
+  const [activateSuccess, setActivateSuccess] = useState<string | null>(null);
 
+  const currentUserPoints = profile?.loyalty.points || 0;
   const loyaltyLevel = getLoyaltyLevel(currentUserPoints);
 
-  const handleCopyCode = (code: string) => {
-    haptic('success');
-    navigator.clipboard?.writeText(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
+  const handleCopyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      haptic('success');
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch {
+      haptic('error');
+    }
   };
 
-  const handleActivateGift = () => {
+  const handleActivateGift = async () => {
     if (!activateCode.trim()) return;
+    
+    setActivating(true);
+    setActivateError(null);
+    setActivateSuccess(null);
     haptic('medium');
-    // TODO: Implement activation via API
-    console.log('Activate gift:', activateCode);
+
+    try {
+      const result = await activateGiftCode(activateCode.trim());
+      if (result.success) {
+        setActivateSuccess(`Подарок активирован! Подписка до ${result.expireDate}`);
+        setActivateCode('');
+        haptic('success');
+        refetch();
+      } else {
+        setActivateError(result.error || 'Не удалось активировать код');
+        haptic('error');
+      }
+    } catch (e) {
+      setActivateError(e instanceof Error ? e.message : 'Ошибка активации');
+      haptic('error');
+    } finally {
+      setActivating(false);
+    }
   };
 
   const handlePurchaseGift = () => {
     haptic('medium');
-    // TODO: Implement purchase flow
-    console.log('Purchase gift:', selectedPlan);
+    // TODO: Реализовать покупку через API
+    alert('Функция покупки подарка будет добавлена');
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-6 flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#6366F1]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-6">
+        <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-400">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6 space-y-6">
@@ -55,8 +94,8 @@ export function Gifts() {
       <div className="flex gap-2 p-1 bg-[#1A1A1A] rounded-xl">
         {[
           { id: 'purchase', label: 'Купить' },
-          { id: 'my', label: 'Мои подарки' },
-          { id: 'received', label: 'Полученные' },
+          { id: 'my', label: `Мои (${purchased.length})` },
+          { id: 'received', label: `Полученные (${received.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -129,19 +168,33 @@ export function Gifts() {
           {/* Activate Gift Code */}
           <div className="rounded-2xl bg-[#1A1A1A] p-5 border border-white/10 space-y-4">
             <h3 className="font-semibold">Активировать подарок</h3>
+            
+            {activateSuccess && (
+              <div className="p-3 rounded-lg bg-[#10B981]/20 text-[#10B981] text-sm">
+                {activateSuccess}
+              </div>
+            )}
+            
+            {activateError && (
+              <div className="p-3 rounded-lg bg-red-500/20 text-red-400 text-sm">
+                {activateError}
+              </div>
+            )}
+            
             <div className="flex gap-3">
               <input
                 type="text"
                 value={activateCode}
                 onChange={(e) => setActivateCode(e.target.value.toUpperCase())}
-                placeholder="GIFT-XXXXX-XXX"
+                placeholder="GIFT-XXXX-XXXX"
                 className="flex-1 bg-[#2A2A2A] rounded-xl px-4 py-3 text-white placeholder:text-[#6B7280] outline-none border border-transparent focus:border-[#6366F1] font-mono"
               />
               <button 
                 onClick={handleActivateGift}
-                className="px-5 py-3 rounded-xl bg-[#10B981] font-semibold hover:bg-[#059669] transition-colors"
+                disabled={activating || !activateCode.trim()}
+                className="px-5 py-3 rounded-xl bg-[#10B981] font-semibold hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Check className="w-5 h-5" />
+                {activating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
               </button>
             </div>
           </div>
@@ -151,7 +204,7 @@ export function Gifts() {
       {/* My Gifts Tab */}
       {activeTab === 'my' && (
         <div className="space-y-3">
-          {mockPurchasedGifts.length === 0 ? (
+          {purchased.length === 0 ? (
             <div className="rounded-2xl bg-[#1A1A1A] p-8 border border-white/10 text-center">
               <Gift className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
               <p className="text-[#6B7280]">У вас пока нет подарков</p>
@@ -163,7 +216,7 @@ export function Gifts() {
               </button>
             </div>
           ) : (
-            mockPurchasedGifts.map((gift) => (
+            purchased.map((gift) => (
               <div
                 key={gift.id}
                 className="rounded-2xl bg-[#1A1A1A] p-5 border border-white/10"
@@ -181,7 +234,7 @@ export function Gifts() {
                       {gift.status === 'active' ? 'Активен' : 'Использован'}
                     </span>
                   </div>
-                  <span className="text-sm text-[#6B7280]">{gift.days} дней</span>
+                  <span className="text-sm text-[#6B7280]">{gift.periodDays} дней</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -210,8 +263,8 @@ export function Gifts() {
                   <Clock className="w-3 h-3" />
                   <span>
                     {gift.status === 'active'
-                      ? `Создан: ${new Date(gift.createdAt).toLocaleDateString('ru-RU')}`
-                      : `Активирован: ${new Date(gift.activatedAt!).toLocaleDateString('ru-RU')}`
+                      ? `Создан: ${gift.createdAt}`
+                      : `Активирован: ${gift.activatedAt}`
                     }
                   </span>
                 </div>
@@ -224,13 +277,13 @@ export function Gifts() {
       {/* Received Tab */}
       {activeTab === 'received' && (
         <div className="space-y-3">
-          {mockReceivedGifts.length === 0 ? (
+          {received.length === 0 ? (
             <div className="rounded-2xl bg-[#1A1A1A] p-8 border border-white/10 text-center">
               <Gift className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
               <p className="text-[#6B7280]">У вас пока нет полученных подарков</p>
             </div>
           ) : (
-            mockReceivedGifts.map((gift) => (
+            received.map((gift) => (
               <div
                 key={gift.id}
                 className="rounded-2xl bg-gradient-to-br from-[#10B981]/10 to-[#059669]/5 p-5 border border-[#10B981]/30"
@@ -244,12 +297,11 @@ export function Gifts() {
                   <code className="font-mono text-sm bg-[#0F0F0F]/50 px-3 py-2 rounded-lg">
                     {gift.code}
                   </code>
-                  <span className="text-sm font-semibold">{gift.days} дней</span>
+                  <span className="text-sm font-semibold">{gift.periodDays} дней</span>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-[#6B7280]">
-                  <span>От: {gift.fromUser}</span>
-                  <span>{new Date(gift.activatedAt).toLocaleDateString('ru-RU')}</span>
+                <div className="text-xs text-[#6B7280]">
+                  <span>Активирован: {gift.activatedAt}</span>
                 </div>
               </div>
             ))
@@ -259,4 +311,3 @@ export function Gifts() {
     </div>
   );
 }
-

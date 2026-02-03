@@ -31,7 +31,7 @@ def require_auth(handler):
     async def wrapper(request: web.Request) -> web.Response:
         user = get_user_from_request(request)
         if not user:
-            return web.json_response({'error': 'Unauthorized'}, status=401)
+            return web.json_response({'error': 'Unauthorized', 'success': False}, status=401)
         request['tg_user'] = user
         return await handler(request)
     return wrapper
@@ -39,7 +39,7 @@ def require_auth(handler):
 
 # ==================== User API ====================
 
-@routes.get('/api/mini-app/user/profile')
+@routes.get('/api/profile')
 @require_auth
 async def get_user_profile(request: web.Request) -> web.Response:
     """Получает профиль пользователя."""
@@ -66,9 +66,22 @@ async def get_user_profile(request: web.Request) -> web.Response:
                     except Exception:
                         pass
                 
+                # Определяем статус подписки
+                status = 'none'
+                expire_at = info.get('expireAt')
+                if expire_at:
+                    try:
+                        expire_dt = datetime.fromisoformat(expire_at.replace('Z', '+00:00'))
+                        if expire_dt.replace(tzinfo=None) > datetime.now():
+                            status = 'active'
+                        else:
+                            status = 'expired'
+                    except Exception:
+                        status = info.get('status', 'none')
+                
                 subscription = {
-                    'status': info.get('status'),
-                    'expireAt': info.get('expireAt'),
+                    'status': status,
+                    'expireAt': expire_at,
                     'trafficUsed': info.get('userTraffic', {}).get('usedTrafficBytes', 0),
                     'trafficLimit': info.get('trafficLimitBytes', 0),
                     'subscriptionUrl': subscription_url,
@@ -83,26 +96,41 @@ async def get_user_profile(request: web.Request) -> web.Response:
         purchased_gifts = GiftCode.get_user_gifts(user.id)
         received_gifts = GiftCode.get_received_gifts(user.id) if hasattr(GiftCode, 'get_received_gifts') else []
         
+        # Вычисляем статус лояльности и скидку
+        points = loyalty_data.get('loyalty_points', 0)
+        loyalty_status = 'bronze'
+        if points >= LOYALTY_THRESHOLDS['platinum']:
+            loyalty_status = 'platinum'
+        elif points >= LOYALTY_THRESHOLDS['gold']:
+            loyalty_status = 'gold'
+        elif points >= LOYALTY_THRESHOLDS['silver']:
+            loyalty_status = 'silver'
+        
+        discount = LOYALTY_DISCOUNTS.get(loyalty_status, 0)
+        
         return web.json_response({
-            'telegramId': user.id,
-            'username': user.username,
-            'loyalty': {
-                'points': loyalty_data.get('loyalty_points', 0),
-                'status': loyalty_data.get('loyalty_status', 'bronze'),
-                'totalSpent': loyalty_data.get('total_spent', 0),
-                'joinedAt': loyalty_data.get('joined_at', ''),
-            },
-            'subscription': subscription,
-            'referralLink': f"https://t.me/{settings.bot_username}?start={user.id}",
-            'totalGiftsPurchased': len(purchased_gifts),
-            'totalGiftsReceived': len(received_gifts),
+            'success': True,
+            'user': {
+                'telegramId': user.id,
+                'username': user.username,
+                'loyalty': {
+                    'points': points,
+                    'status': loyalty_status,
+                    'discount': discount,
+                    'totalSpent': loyalty_data.get('total_spent', 0),
+                },
+                'subscription': subscription,
+                'referralLink': f"https://t.me/{settings.bot_username}?start={user.id}",
+                'totalGiftsPurchased': len(purchased_gifts),
+                'totalGiftsReceived': len(received_gifts),
+            }
         })
     except Exception as e:
         logger.exception("Error getting user profile")
-        return web.json_response({'error': 'Internal error'}, status=500)
+        return web.json_response({'success': False, 'error': 'Internal error'}, status=500)
 
 
-@routes.get('/api/mini-app/user/payments')
+@routes.get('/api/payments')
 @require_auth
 async def get_user_payments(request: web.Request) -> web.Response:
     """Получает историю платежей пользователя."""
@@ -116,24 +144,33 @@ async def get_user_payments(request: web.Request) -> web.Response:
             payment_method = p.get('payment_method', 'unknown')
             is_stars = payment_method == 'stars'
             
+            # Определяем статус
+            status = p.get('status', 'unknown')
+            if status == 'succeeded':
+                status = 'completed'
+            elif status == 'pending' or status == 'waiting_for_capture':
+                status = 'pending'
+            elif status in ['canceled', 'failed', 'expired']:
+                status = 'failed'
+            
             formatted.append({
-                'id': p.get('id'),
+                'id': str(p.get('id')),
                 'date': p.get('created_at', '')[:10] if p.get('created_at') else '',
                 'amount': p.get('stars', 0) if is_stars else p.get('amount_rub', 0),
                 'currency': '⭐' if is_stars else '₽',
                 'type': 'gift' if str(p.get('invoice_payload', '')).startswith('gift:') else 'subscription',
                 'periodDays': p.get('subscription_days', 0),
                 'method': payment_method,
-                'status': p.get('status', 'unknown'),
+                'status': status,
             })
         
-        return web.json_response({'payments': formatted})
+        return web.json_response({'success': True, 'payments': formatted})
     except Exception as e:
         logger.exception("Error getting payments")
-        return web.json_response({'error': 'Internal error'}, status=500)
+        return web.json_response({'success': False, 'error': 'Internal error'}, status=500)
 
 
-@routes.get('/api/mini-app/user/gifts')
+@routes.get('/api/gifts')
 @require_auth
 async def get_user_gifts(request: web.Request) -> web.Response:
     """Получает подарки пользователя."""
@@ -146,7 +183,7 @@ async def get_user_gifts(request: web.Request) -> web.Response:
         purchased_formatted = []
         for g in purchased:
             purchased_formatted.append({
-                'id': g.get('id'),
+                'id': str(g.get('id')),
                 'code': g.get('code', ''),
                 'status': g.get('status', 'unknown'),
                 'periodDays': g.get('subscription_days', 0),
@@ -157,25 +194,25 @@ async def get_user_gifts(request: web.Request) -> web.Response:
         received_formatted = []
         for g in received:
             received_formatted.append({
-                'id': g.get('id'),
+                'id': str(g.get('id')),
                 'code': g.get('code', ''),
                 'periodDays': g.get('subscription_days', 0),
-                'fromUserId': g.get('buyer_id'),
                 'activatedAt': g.get('activated_at', '')[:10] if g.get('activated_at') else '',
             })
         
         return web.json_response({
+            'success': True,
             'purchasedGifts': purchased_formatted,
             'receivedGifts': received_formatted,
         })
     except Exception as e:
         logger.exception("Error getting gifts")
-        return web.json_response({'error': 'Internal error'}, status=500)
+        return web.json_response({'success': False, 'error': 'Internal error'}, status=500)
 
 
 # ==================== Gift API ====================
 
-@routes.post('/api/mini-app/gift/activate')
+@routes.post('/api/gifts/activate')
 @require_auth
 async def activate_gift(request: web.Request) -> web.Response:
     """Активирует подарочный код."""
@@ -186,19 +223,19 @@ async def activate_gift(request: web.Request) -> web.Response:
         data = await request.json()
         code = data.get('code', '').strip().upper()
     except Exception:
-        return web.json_response({'error': 'Invalid request'}, status=400)
+        return web.json_response({'success': False, 'error': 'Invalid request'}, status=400)
     
     if not code:
-        return web.json_response({'error': 'Code is required'}, status=400)
+        return web.json_response({'success': False, 'error': 'Введите код подарка'}, status=400)
     
     try:
         gift = GiftCode.get_by_code(code)
         if not gift:
-            return web.json_response({'error': 'Code not found'}, status=404)
+            return web.json_response({'success': False, 'error': 'Код не найден'}, status=404)
         if gift.get('status') != 'active':
-            return web.json_response({'error': 'Code already used'}, status=400)
+            return web.json_response({'success': False, 'error': 'Код уже использован'}, status=400)
         if gift.get('buyer_id') == user.id:
-            return web.json_response({'error': 'Cannot activate own code'}, status=400)
+            return web.json_response({'success': False, 'error': 'Нельзя активировать свой код'}, status=400)
         
         bot_user = BotUser.get_or_create(user.id, user.username)
         existing_uuid = bot_user.get('remnawave_user_uuid')
@@ -225,7 +262,7 @@ async def activate_gift(request: web.Request) -> web.Response:
             
             return web.json_response({
                 'success': True,
-                'expireDate': expire_str[:10],
+                'expireDate': new_expire.strftime('%d.%m.%Y'),
             })
         else:
             # Создаём нового пользователя
@@ -248,24 +285,25 @@ async def activate_gift(request: web.Request) -> web.Response:
                 BotUser.set_remnawave_uuid(user.id, new_uuid)
                 GiftCode.activate(code, user.id, new_uuid)
                 
+                expire_formatted = (datetime.now() + timedelta(days=subscription_days)).strftime('%d.%m.%Y')
                 return web.json_response({
                     'success': True,
-                    'expireDate': expire_date[:10],
+                    'expireDate': expire_formatted,
                 })
             else:
-                return web.json_response({'error': 'Failed to create subscription'}, status=500)
+                return web.json_response({'success': False, 'error': 'Ошибка создания подписки'}, status=500)
                 
     except ApiClientError as e:
         logger.error(f"API error activating gift: {e}")
-        return web.json_response({'error': 'API error'}, status=500)
+        return web.json_response({'success': False, 'error': 'Ошибка API'}, status=500)
     except Exception as e:
         logger.exception("Error activating gift")
-        return web.json_response({'error': 'Internal error'}, status=500)
+        return web.json_response({'success': False, 'error': 'Внутренняя ошибка'}, status=500)
 
 
 # ==================== Payment API ====================
 
-@routes.post('/api/mini-app/payment/create')
+@routes.post('/api/payments/create')
 @require_auth
 async def create_payment(request: web.Request) -> web.Response:
     """Создаёт платёж."""
@@ -277,16 +315,16 @@ async def create_payment(request: web.Request) -> web.Response:
         method = data.get('method')
         is_gift = data.get('isGift', False)
     except Exception:
-        return web.json_response({'error': 'Invalid request'}, status=400)
+        return web.json_response({'success': False, 'error': 'Invalid request'}, status=400)
     
     if not months or not method:
-        return web.json_response({'error': 'Missing parameters'}, status=400)
+        return web.json_response({'success': False, 'error': 'Укажите все параметры'}, status=400)
     
     if months not in [1, 3, 6, 12]:
-        return web.json_response({'error': 'Invalid subscription period'}, status=400)
+        return web.json_response({'success': False, 'error': 'Неверный период подписки'}, status=400)
     
     if method not in ['stars', 'sbp', 'card']:
-        return web.json_response({'error': 'Invalid payment method'}, status=400)
+        return web.json_response({'success': False, 'error': 'Неверный способ оплаты'}, status=400)
     
     try:
         bot = request.app.get('bot')
@@ -297,7 +335,7 @@ async def create_payment(request: web.Request) -> web.Response:
             
             if method == 'stars':
                 if not bot:
-                    return web.json_response({'error': 'Bot not available'}, status=500)
+                    return web.json_response({'success': False, 'error': 'Бот недоступен'}, status=500)
                 invoice_link = await create_gift_invoice(bot, user.id, months)
                 return web.json_response({
                     'success': True,
@@ -318,7 +356,7 @@ async def create_payment(request: web.Request) -> web.Response:
             
             if method == 'stars':
                 if not bot:
-                    return web.json_response({'error': 'Bot not available'}, status=500)
+                    return web.json_response({'success': False, 'error': 'Бот недоступен'}, status=500)
                 invoice_link = await create_subscription_invoice(bot, user.id, months)
                 return web.json_response({
                     'success': True,
@@ -335,13 +373,13 @@ async def create_payment(request: web.Request) -> web.Response:
                 })
                 
     except ValueError as e:
-        return web.json_response({'error': str(e)}, status=400)
+        return web.json_response({'success': False, 'error': str(e)}, status=400)
     except Exception as e:
         logger.exception("Error creating payment")
-        return web.json_response({'error': 'Internal error'}, status=500)
+        return web.json_response({'success': False, 'error': 'Внутренняя ошибка'}, status=500)
 
 
-@routes.get('/api/mini-app/payment/check_status/{payment_id}')
+@routes.get('/api/payments/{payment_id}/status')
 @require_auth
 async def check_payment_status(request: web.Request) -> web.Response:
     """Проверяет статус платежа YooKassa."""
@@ -350,24 +388,24 @@ async def check_payment_status(request: web.Request) -> web.Response:
     try:
         payment_id = int(request.match_info['payment_id'])
     except ValueError:
-        return web.json_response({'error': 'Invalid payment ID'}, status=400)
+        return web.json_response({'success': False, 'error': 'Неверный ID платежа'}, status=400)
     
     try:
         payment = Payment.get(payment_id)
         if not payment:
-            return web.json_response({'error': 'Payment not found'}, status=404)
+            return web.json_response({'success': False, 'error': 'Платёж не найден'}, status=404)
         if payment.get('user_id') != user.id:
-            return web.json_response({'error': 'Unauthorized'}, status=403)
+            return web.json_response({'success': False, 'error': 'Нет доступа'}, status=403)
         
         if payment.get('status') == 'completed':
             return web.json_response({
+                'success': True,
                 'status': 'completed',
-                'message': 'Payment already completed',
             })
         
         yookassa_payment_id = payment.get('yookassa_payment_id')
         if not yookassa_payment_id:
-            return web.json_response({'error': 'Not a YooKassa payment'}, status=400)
+            return web.json_response({'success': False, 'error': 'Не YooKassa платёж'}, status=400)
         
         from src.services.yookassa_service import check_yookassa_payment_status
         
@@ -385,14 +423,13 @@ async def check_payment_status(request: web.Request) -> web.Response:
                 
                 if result.get('success'):
                     return web.json_response({
+                        'success': True,
                         'status': 'completed',
-                        'message': 'Gift activated',
-                        'giftCode': result.get('gift_code'),
                     })
                 else:
                     return web.json_response({
+                        'success': False,
                         'status': 'failed',
-                        'message': result.get('error', 'Activation failed'),
                     }, status=500)
             else:
                 from src.services.yookassa_service import process_yookassa_payment
@@ -401,28 +438,28 @@ async def check_payment_status(request: web.Request) -> web.Response:
                 
                 if result.get('success'):
                     return web.json_response({
+                        'success': True,
                         'status': 'completed',
-                        'message': 'Subscription activated',
                     })
                 else:
                     return web.json_response({
+                        'success': False,
                         'status': 'failed',
-                        'message': result.get('error', 'Activation failed'),
                     }, status=500)
         elif status == 'canceled':
             return web.json_response({
-                'status': 'canceled',
-                'message': 'Payment canceled',
+                'success': True,
+                'status': 'failed',
             })
         else:
             return web.json_response({
-                'status': status or 'pending',
-                'message': 'Payment is still pending',
+                'success': True,
+                'status': 'pending',
             })
             
     except Exception as e:
         logger.exception("Error checking payment status")
-        return web.json_response({'error': 'Internal error'}, status=500)
+        return web.json_response({'success': False, 'error': 'Внутренняя ошибка'}, status=500)
 
 
 # ==================== Setup ====================
@@ -440,4 +477,3 @@ def setup_routes(app: web.Application, bot_token: str, bot_instance=None):
     if bot_instance:
         app['bot'] = bot_instance
     app.add_routes(routes)
-

@@ -1,48 +1,104 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Утилита для объединения классов Tailwind
+ */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 Б';
-  const k = 1024;
-  const sizes = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+/**
+ * Хаптическая обратная связь Telegram
+ */
+export function haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'warning' = 'light') {
+  try {
+    const webApp = window.Telegram?.WebApp;
+    if (!webApp?.HapticFeedback) return;
+
+    if (type === 'success' || type === 'error' || type === 'warning') {
+      webApp.HapticFeedback.notificationOccurred(type);
+    } else {
+      webApp.HapticFeedback.impactOccurred(type);
+    }
+  } catch {
+    // Haptic не доступен
+  }
 }
 
-export function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('ru-RU', {
+/**
+ * Форматирование байтов в человекочитаемый формат
+ */
+export function formatBytes(bytes: number, decimals = 2): string {
+  if (bytes === 0) return '0 Б';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const size = i < sizes.length ? sizes[i] : sizes[sizes.length - 1];
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + size;
+}
+
+/**
+ * Склонение слов
+ */
+export function pluralize(count: number, words: [string, string, string]): string {
+  const cases = [2, 0, 1, 1, 1, 2];
+  const index = (count % 100 > 4 && count % 100 < 20) 
+    ? 2 
+    : cases[Math.min(count % 10, 5)];
+  return words[index];
+}
+
+/**
+ * Форматирование даты
+ */
+export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOptions): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('ru-RU', options || {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
 }
 
-export function daysUntil(dateStr: string): number {
-  const date = new Date(dateStr);
-  const now = new Date();
-  return Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+/**
+ * Форматирование цены
+ */
+export function formatPrice(price: number, currency: string = '₽'): string {
+  return `${price.toLocaleString('ru-RU')} ${currency}`;
 }
 
-export function pluralize(n: number, forms: [string, string, string]): string {
-  const n10 = n % 10;
-  const n100 = n % 100;
-  if (n10 === 1 && n100 !== 11) return forms[0];
-  if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return forms[1];
-  return forms[2];
+/**
+ * Задержка
+ */
+export function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'warning' = 'light') {
-  if (!window.Telegram?.WebApp?.HapticFeedback) return;
-  
-  if (type === 'success' || type === 'error' || type === 'warning') {
-    window.Telegram.WebApp.HapticFeedback.notificationOccurred(type);
-  } else {
-    window.Telegram.WebApp.HapticFeedback.impactOccurred(type);
+/**
+ * Копирование в буфер обмена
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // Fallback
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return true;
+  } catch {
+    return false;
   }
 }
-

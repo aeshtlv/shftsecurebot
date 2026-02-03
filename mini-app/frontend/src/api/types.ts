@@ -1,84 +1,93 @@
-// Типы для API Mini App
+// Подписка пользователя
+export interface Subscription {
+  status: 'active' | 'expired' | 'none';
+  expireAt: string | null;
+  trafficUsed: number;
+  trafficLimit: number;
+  subscriptionUrl: string | null;
+  autoRenewal: boolean;
+}
 
+// Данные лояльности
+export interface Loyalty {
+  points: number;
+  status: 'bronze' | 'silver' | 'gold' | 'platinum';
+  discount: number;
+  totalSpent: number;
+}
+
+// Профиль пользователя
 export interface User {
   telegramId: number;
-  username?: string;
-  loyalty: {
-    points: number;
-    status: 'bronze' | 'silver' | 'gold' | 'platinum';
-    totalSpent: number;
-    joinedAt: string;
-  };
+  username: string | null;
   subscription: Subscription | null;
+  loyalty: Loyalty;
   referralLink: string;
   totalGiftsPurchased: number;
   totalGiftsReceived: number;
 }
 
-export interface Subscription {
-  status: 'active' | 'expired' | 'disabled';
-  expireAt: string;
-  trafficUsed: number;
-  trafficLimit: number;
-  subscriptionUrl: string;
-  autoRenewal: boolean;
-}
-
+// Платёж
 export interface Payment {
-  id: number;
-  date: string;
+  id: string;
+  type: 'subscription' | 'gift';
   amount: number;
   currency: string;
-  type: 'subscription' | 'gift';
-  periodDays: number;
   method: 'stars' | 'sbp' | 'card';
-  status: 'pending' | 'completed' | 'failed';
+  status: 'completed' | 'pending' | 'failed';
+  periodDays: number;
+  date: string;
 }
 
+// Подарочный код
 export interface GiftCode {
-  id: number;
+  id: string;
   code: string;
-  status: 'active' | 'used';
+  status: 'active' | 'used' | 'expired';
   periodDays: number;
   createdAt: string;
-  activatedAt?: string;
+  activatedAt: string | null;
 }
 
+// Полученный подарок
 export interface ReceivedGift {
-  id: number;
+  id: string;
   code: string;
   periodDays: number;
-  fromUserId: number;
   activatedAt: string;
 }
 
-export interface PaymentCreateRequest {
-  months: number;
-  method: 'stars' | 'sbp' | 'card';
-  isGift: boolean;
+// Ответы API
+export interface UserProfileResponse {
+  success: boolean;
+  user: User;
 }
 
-export interface PaymentCreateResponse {
+export interface PaymentsResponse {
+  success: boolean;
+  payments: Payment[];
+}
+
+export interface GiftsResponse {
+  success: boolean;
+  purchasedGifts: GiftCode[];
+  receivedGifts: ReceivedGift[];
+}
+
+export interface ActivateGiftResponse {
+  success: boolean;
+  error?: string;
+  expireDate?: string;
+}
+
+export interface CreatePaymentResponse {
   success: boolean;
   paymentUrl?: string;
-  method: string;
-  paymentDbId?: number;
+  invoiceLink?: string;
   error?: string;
 }
 
-export interface GiftActivateRequest {
-  code: string;
-}
-
-export interface GiftActivateResponse {
+export interface PaymentStatusResponse {
   success: boolean;
-  expireDate?: string;
-  error?: string;
+  status: 'pending' | 'completed' | 'failed';
 }
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-

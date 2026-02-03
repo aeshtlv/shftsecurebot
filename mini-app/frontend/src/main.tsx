@@ -1,67 +1,14 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
-
-// Инициализация Telegram WebApp
-declare global {
-  interface Window {
-    Telegram: {
-      WebApp: {
-        ready: () => void;
-        expand: () => void;
-        close: () => void;
-        initData: string;
-        initDataUnsafe: {
-          user?: {
-            id: number;
-            first_name: string;
-            last_name?: string;
-            username?: string;
-            language_code?: string;
-          };
-        };
-        themeParams: {
-          bg_color?: string;
-          text_color?: string;
-          button_color?: string;
-          button_text_color?: string;
-        };
-        setHeaderColor: (color: string) => void;
-        setBackgroundColor: (color: string) => void;
-        enableClosingConfirmation: () => void;
-        MainButton: {
-          text: string;
-          color: string;
-          textColor: string;
-          isVisible: boolean;
-          show: () => void;
-          hide: () => void;
-          onClick: (callback: () => void) => void;
-          offClick: (callback: () => void) => void;
-        };
-        BackButton: {
-          isVisible: boolean;
-          show: () => void;
-          hide: () => void;
-          onClick: (callback: () => void) => void;
-        };
-        HapticFeedback: {
-          impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
-          notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
-          selectionChanged: () => void;
-        };
-      };
-    };
-  }
-}
+import './types/telegram.d.ts';
 
 // Инициализируем Telegram WebApp
 if (window.Telegram?.WebApp) {
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();
-  window.Telegram.WebApp.setHeaderColor('#0F0F0F');
-  window.Telegram.WebApp.setBackgroundColor('#0F0F0F');
+  window.Telegram.WebApp.setHeaderColor?.('#0F0F0F');
+  window.Telegram.WebApp.setBackgroundColor?.('#0F0F0F');
 }
 
 createRoot(document.getElementById('root')!).render(<App />);
-

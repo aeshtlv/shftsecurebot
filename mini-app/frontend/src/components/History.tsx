@@ -1,50 +1,7 @@
 import { useState } from 'react';
-import { CreditCard, Star, Smartphone, Gift, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { CreditCard, Star, Smartphone, Gift, Clock, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { haptic } from '../lib/utils';
-
-// TODO: Get from API
-const mockPayments = [
-  {
-    id: 1,
-    date: '2026-01-30',
-    amount: 284,
-    currency: '₽',
-    type: 'subscription',
-    periodDays: 90,
-    method: 'sbp',
-    status: 'completed',
-  },
-  {
-    id: 2,
-    date: '2026-01-25',
-    amount: 123,
-    currency: '₽',
-    type: 'gift',
-    periodDays: 30,
-    method: 'card',
-    status: 'completed',
-  },
-  {
-    id: 3,
-    date: '2026-01-20',
-    amount: 130,
-    currency: '⭐',
-    type: 'subscription',
-    periodDays: 30,
-    method: 'stars',
-    status: 'completed',
-  },
-  {
-    id: 4,
-    date: '2025-12-15',
-    amount: 522,
-    currency: '₽',
-    type: 'subscription',
-    periodDays: 180,
-    method: 'card',
-    status: 'completed',
-  },
-];
+import { usePayments } from '../hooks/useApi';
 
 const methodIcons: Record<string, React.ReactNode> = {
   stars: <Star className="w-4 h-4" />,
@@ -59,18 +16,38 @@ const methodNames: Record<string, string> = {
 };
 
 export function History() {
+  const { data: payments, loading, error } = usePayments();
   const [filter, setFilter] = useState<'all' | 'subscription' | 'gift'>('all');
 
-  const filteredPayments = mockPayments.filter((payment) => {
+  const filteredPayments = payments.filter((payment) => {
     if (filter === 'all') return true;
     return payment.type === filter;
   });
 
-  const totalSpent = mockPayments
+  const totalSpent = payments
     .filter((p) => p.status === 'completed' && p.currency === '₽')
     .reduce((sum, p) => sum + p.amount, 0);
 
-  const totalPayments = mockPayments.filter((p) => p.status === 'completed').length;
+  const totalPayments = payments.filter((p) => p.status === 'completed').length;
+
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-6 flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#6366F1]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-6">
+        <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-400">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6 space-y-6">
@@ -155,7 +132,7 @@ export function History() {
                   </p>
                   <div className="flex items-center justify-end gap-1 text-xs text-[#6B7280]">
                     {methodIcons[payment.method]}
-                    <span>{methodNames[payment.method]}</span>
+                    <span>{methodNames[payment.method] || payment.method}</span>
                   </div>
                 </div>
               </div>
@@ -174,13 +151,7 @@ export function History() {
                     </>
                   )}
                 </div>
-                <span className="text-sm text-[#6B7280]">
-                  {new Date(payment.date).toLocaleDateString('ru-RU', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </span>
+                <span className="text-sm text-[#6B7280]">{payment.date}</span>
               </div>
             </div>
           ))
@@ -189,4 +160,3 @@ export function History() {
     </div>
   );
 }
-

@@ -1,103 +1,116 @@
-import type {
-  User,
-  Payment,
-  GiftCode,
+import type { 
+  User, 
+  Payment, 
+  GiftCode, 
   ReceivedGift,
-  PaymentCreateRequest,
-  PaymentCreateResponse,
-  GiftActivateRequest,
-  GiftActivateResponse,
+  UserProfileResponse, 
+  PaymentsResponse, 
+  GiftsResponse,
+  ActivateGiftResponse,
+  CreatePaymentResponse,
+  PaymentStatusResponse
 } from './types';
-
-// API Base URL - настраивается через env переменные при деплое
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/mini-app';
+import '../types/telegram.d.ts';
 
 // Получаем initData из Telegram WebApp
 function getInitData(): string {
-  return window.Telegram?.WebApp?.initData || '';
+  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) {
+    return window.Telegram.WebApp.initData;
+  }
+  return '';
 }
 
-// Базовый fetch с авторизацией
-async function fetchApi<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+// Получаем данные пользователя из Telegram
+export function getTelegramUser() {
+  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user) {
+    return window.Telegram.WebApp.initDataUnsafe.user;
+  }
+  return null;
+}
+
+// Базовый URL API
+const API_BASE = '/api';
+
+// Обёртка для запросов с авторизацией
+async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const initData = getInitData();
   
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       'X-Telegram-Init-Data': initData,
-      ...options.headers,
+      ...options?.headers,
     },
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+    throw new Error(errorData.error || `HTTP error ${response.status}`);
   }
 
   return response.json();
 }
 
-// === User API ===
+// API методы
 
+/**
+ * Получить профиль пользователя
+ */
 export async function getUserProfile(): Promise<User> {
-  return fetchApi<User>('/user/profile');
+  const response = await apiRequest<UserProfileResponse>('/profile');
+  if (!response.success || !response.user) {
+    throw new Error('Не удалось получить профиль');
+  }
+  return response.user;
 }
 
+/**
+ * Получить историю платежей
+ */
 export async function getUserPayments(): Promise<{ payments: Payment[] }> {
-  return fetchApi<{ payments: Payment[] }>('/user/payments');
+  const response = await apiRequest<PaymentsResponse>('/payments');
+  return { payments: response.payments || [] };
 }
 
-export async function getUserGifts(): Promise<{
-  purchasedGifts: GiftCode[];
-  receivedGifts: ReceivedGift[];
-}> {
-  return fetchApi<{
-    purchasedGifts: GiftCode[];
-    receivedGifts: ReceivedGift[];
-  }>('/user/gifts');
+/**
+ * Получить подарочные коды
+ */
+export async function getUserGifts(): Promise<{ purchasedGifts: GiftCode[]; receivedGifts: ReceivedGift[] }> {
+  const response = await apiRequest<GiftsResponse>('/gifts');
+  return {
+    purchasedGifts: response.purchasedGifts || [],
+    receivedGifts: response.receivedGifts || [],
+  };
 }
 
-// === Gift API ===
-
-export async function activateGiftCode(
-  code: string
-): Promise<GiftActivateResponse> {
-  return fetchApi<GiftActivateResponse>('/gift/activate', {
+/**
+ * Активировать подарочный код
+ */
+export async function activateGiftCode(code: string): Promise<ActivateGiftResponse> {
+  return apiRequest<ActivateGiftResponse>('/gifts/activate', {
     method: 'POST',
-    body: JSON.stringify({ code } as GiftActivateRequest),
+    body: JSON.stringify({ code }),
   });
 }
 
-// === Payment API ===
-
+/**
+ * Создать платёж
+ */
 export async function createPayment(
-  request: PaymentCreateRequest
-): Promise<PaymentCreateResponse> {
-  return fetchApi<PaymentCreateResponse>('/payment/create', {
+  months: number,
+  method: 'stars' | 'sbp' | 'card',
+  isGift: boolean = false
+): Promise<CreatePaymentResponse> {
+  return apiRequest<CreatePaymentResponse>('/payments/create', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify({ months, method, isGift }),
   });
 }
 
-export async function checkPaymentStatus(
-  paymentDbId: number
-): Promise<{ status: string; message: string; giftCode?: string }> {
-  return fetchApi<{ status: string; message: string; giftCode?: string }>(
-    `/payment/check_status/${paymentDbId}`
-  );
+/**
+ * Проверить статус платежа
+ */
+export async function checkPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
+  return apiRequest<PaymentStatusResponse>(`/payments/${paymentId}/status`);
 }
-
-// === Utility ===
-
-export function getTelegramUser() {
-  return window.Telegram?.WebApp?.initDataUnsafe?.user;
-}
-
-export function isInTelegram(): boolean {
-  return !!window.Telegram?.WebApp?.initData;
-}
-

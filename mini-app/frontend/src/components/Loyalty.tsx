@@ -1,4 +1,4 @@
-import { Trophy, TrendingUp, Sparkles } from 'lucide-react';
+import { Trophy, TrendingUp, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { 
   SUBSCRIPTION_PLANS,
   LOYALTY_THRESHOLDS, 
@@ -9,6 +9,8 @@ import {
   getDiscountedPrice,
   type LoyaltyLevel 
 } from '../config/pricing';
+import { useUserProfile } from '../hooks/useApi';
+import { getTelegramUser } from '../api/client';
 
 const loyaltyLevels: { name: LoyaltyLevel; displayName: string }[] = [
   { name: 'bronze', displayName: 'Bronze' },
@@ -17,17 +19,38 @@ const loyaltyLevels: { name: LoyaltyLevel; displayName: string }[] = [
   { name: 'platinum', displayName: 'Platinum' },
 ];
 
-// TODO: Get from API
-const currentPoints = 850;
-const userName = 'Пользователь';
-const userUsername = '@user';
-
 export function Loyalty() {
+  const { data: profile, loading, error } = useUserProfile();
+  const tgUser = getTelegramUser();
+
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-6 flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#6366F1]" />
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-6">
+        <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-400">{error || 'Не удалось загрузить данные'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentPoints = profile.loyalty.points;
   const currentLevel = getLoyaltyLevel(currentPoints);
   const currentLevelIndex = loyaltyLevels.findIndex(l => l.name === currentLevel);
   const discount = LOYALTY_DISCOUNTS[currentLevel];
   const color = LOYALTY_COLORS[currentLevel];
   const nextLevelInfo = getNextLevelInfo(currentPoints, currentLevel);
+
+  const userName = tgUser?.first_name || 'Пользователь';
+  const userUsername = tgUser?.username ? `@${tgUser.username}` : '';
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 space-y-6">
@@ -45,7 +68,7 @@ export function Loyalty() {
           </div>
           <div>
             <h2 className="text-xl font-bold">{userName}</h2>
-            <p className="text-sm text-[#6B7280]">{userUsername}</p>
+            {userUsername && <p className="text-sm text-[#6B7280]">{userUsername}</p>}
           </div>
         </div>
 
@@ -173,7 +196,7 @@ export function Loyalty() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <p className="text-sm text-[#6B7280] line-through">
+                      <p className={`text-sm ${discount > 0 ? 'text-[#6B7280] line-through' : ''}`}>
                         {plan.price} ₽
                       </p>
                     </td>
@@ -202,16 +225,11 @@ export function Loyalty() {
             <span className="font-semibold">1 ₽ = 1 балл</span>
           </li>
           <li className="flex justify-between">
-            <span className="text-[#6B7280]">Реферальная программа</span>
-            <span className="font-semibold">500 баллов</span>
-          </li>
-          <li className="flex justify-between">
-            <span className="text-[#6B7280]">Ежемесячная подписка</span>
-            <span className="font-semibold">100 баллов/мес</span>
+            <span className="text-[#6B7280]">Приглашение друга</span>
+            <span className="font-semibold">+3 дня подписки</span>
           </li>
         </ul>
       </div>
     </div>
   );
 }
-

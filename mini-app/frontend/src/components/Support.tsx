@@ -1,60 +1,15 @@
-import { MessageCircle, FileText, Globe, Shield, ChevronRight, ExternalLink } from 'lucide-react';
+import { MessageCircle, Mail, ChevronRight, Shield, Zap, Clock } from 'lucide-react';
 import { haptic } from '../lib/utils';
 
-const supportLinks = [
-  {
-    id: 'chat',
-    icon: <MessageCircle className="w-5 h-5" />,
-    title: 'Написать в поддержку',
-    description: 'Ответим в течение 15 минут',
-    url: 'https://t.me/shftsup_bot',
-    highlight: true,
-  },
-  {
-    id: 'faq',
-    icon: <FileText className="w-5 h-5" />,
-    title: 'Частые вопросы',
-    description: 'Ответы на популярные вопросы',
-    url: '#faq',
-  },
-  {
-    id: 'docs',
-    icon: <Globe className="w-5 h-5" />,
-    title: 'Инструкции',
-    description: 'Настройка на всех устройствах',
-    url: '#docs',
-  },
-];
-
-const faqItems = [
-  {
-    question: 'Как подключить VPN?',
-    answer: 'Скопируйте конфигурацию из раздела "Главная" и вставьте её в приложение V2Ray или Outline.',
-  },
-  {
-    question: 'Сколько устройств можно подключить?',
-    answer: 'К одной подписке можно подключить до 5 устройств одновременно.',
-  },
-  {
-    question: 'Как продлить подписку?',
-    answer: 'Перейдите в раздел "Магазин" и выберите нужный тариф. Если включено автопродление, подписка продлится автоматически.',
-  },
-  {
-    question: 'Что делать, если VPN не работает?',
-    answer: 'Попробуйте переподключиться или сменить сервер. Если проблема сохраняется, напишите в поддержку.',
-  },
-  {
-    question: 'Как подарить подписку?',
-    answer: 'В разделе "Подарки" выберите срок подписки и нажмите "Купить подарок". Вы получите код, который можно передать другу.',
-  },
-];
-
 export function Support() {
-  const handleLinkClick = (url: string) => {
+  const openTelegramSupport = () => {
     haptic('light');
-    if (url.startsWith('http')) {
-      window.open(url, '_blank');
-    }
+    window.open('https://t.me/shftsup_bot', '_blank');
+  };
+
+  const openChannel = () => {
+    haptic('light');
+    window.open('https://t.me/shftsecure', '_blank');
   };
 
   return (
@@ -65,34 +20,84 @@ export function Support() {
         <p className="text-sm text-[#6B7280]">Мы всегда готовы помочь</p>
       </div>
 
-      {/* Support Links */}
+      {/* Quick Support */}
+      <div className="rounded-2xl bg-gradient-to-br from-[#6366F1]/20 to-[#8B5CF6]/10 p-6 border border-[#6366F1]/30">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-[#6366F1] flex items-center justify-center">
+            <MessageCircle className="w-7 h-7" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-bold text-lg mb-1">Техническая поддержка</h2>
+            <p className="text-sm text-[#6B7280]">Ответим на любые вопросы</p>
+          </div>
+        </div>
+        <button
+          onClick={openTelegramSupport}
+          className="w-full mt-4 py-3 rounded-xl bg-[#6366F1] font-semibold hover:bg-[#5558E8] transition-colors flex items-center justify-center gap-2"
+        >
+          <MessageCircle className="w-5 h-5" />
+          Написать в поддержку
+        </button>
+      </div>
+
+      {/* Support Features */}
       <div className="space-y-3">
-        {supportLinks.map((link) => (
+        <h3 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide">
+          Наши преимущества
+        </h3>
+        <div className="grid grid-cols-1 gap-3">
+          <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#10B981]/20 flex items-center justify-center">
+              <Clock className="w-6 h-6 text-[#10B981]" />
+            </div>
+            <div>
+              <p className="font-semibold">Быстрый ответ</p>
+              <p className="text-sm text-[#6B7280]">Отвечаем в течение 15 минут</p>
+            </div>
+          </div>
+          <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#6366F1]/20 flex items-center justify-center">
+              <Zap className="w-6 h-6 text-[#6366F1]" />
+            </div>
+            <div>
+              <p className="font-semibold">Высокая скорость</p>
+              <p className="text-sm text-[#6B7280]">Серверы в 10+ странах мира</p>
+            </div>
+          </div>
+          <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#F59E0B]/20 flex items-center justify-center">
+              <Shield className="w-6 h-6 text-[#F59E0B]" />
+            </div>
+            <div>
+              <p className="font-semibold">Безопасность</p>
+              <p className="text-sm text-[#6B7280]">Шифрование всего трафика</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Links */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide">
+          Полезные ссылки
+        </h3>
+        <div className="space-y-2">
           <button
-            key={link.id}
-            onClick={() => handleLinkClick(link.url)}
-            className={`w-full rounded-2xl p-5 border transition-all text-left flex items-center gap-4 ${
-              link.highlight
-                ? 'bg-gradient-to-br from-[#6366F1]/20 to-[#8B5CF6]/10 border-[#6366F1] hover:border-[#6366F1]'
-                : 'bg-[#1A1A1A] border-white/10 hover:border-white/20'
-            }`}
+            onClick={openChannel}
+            className="w-full rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 hover:border-white/20 transition-colors flex items-center justify-between"
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              link.highlight ? 'bg-[#6366F1]' : 'bg-[#2A2A2A]'
-            }`}>
-              {link.icon}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#6366F1]/20 flex items-center justify-center">
+                <Mail className="w-5 h-5 text-[#6366F1]" />
+              </div>
+              <div className="text-left">
+                <p className="font-semibold">Новости и обновления</p>
+                <p className="text-sm text-[#6B7280]">@shftsecure</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="font-semibold">{link.title}</p>
-              <p className="text-sm text-[#6B7280]">{link.description}</p>
-            </div>
-            {link.url.startsWith('http') ? (
-              <ExternalLink className="w-5 h-5 text-[#6B7280]" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-[#6B7280]" />
-            )}
+            <ChevronRight className="w-5 h-5 text-[#6B7280]" />
           </button>
-        ))}
+        </div>
       </div>
 
       {/* FAQ */}
@@ -101,50 +106,48 @@ export function Support() {
           Частые вопросы
         </h3>
         <div className="space-y-3">
-          {faqItems.map((item, idx) => (
-            <details
-              key={idx}
-              className="group rounded-2xl bg-[#1A1A1A] border border-white/10 overflow-hidden"
-            >
-              <summary className="flex items-center justify-between p-5 cursor-pointer list-none">
-                <span className="font-semibold pr-4">{item.question}</span>
-                <ChevronRight className="w-5 h-5 text-[#6B7280] transition-transform group-open:rotate-90" />
-              </summary>
-              <div className="px-5 pb-5 text-sm text-[#6B7280] leading-relaxed">
-                {item.answer}
-              </div>
-            </details>
-          ))}
+          <FAQItem
+            question="Как подключить VPN?"
+            answer="Скопируйте конфиг на главной странице и вставьте его в любое приложение для VPN: v2rayNG (Android), Streisand (iOS), Hiddify (Windows/Mac)."
+          />
+          <FAQItem
+            question="Как продлить подписку?"
+            answer="Перейдите в раздел 'Магазин' и выберите нужный тариф. Если у вас включено автопродление, подписка продлится автоматически."
+          />
+          <FAQItem
+            question="Как работают рефералы?"
+            answer="Пригласите друга по вашей реферальной ссылке. Когда он оформит подписку, вы получите +3 дня к вашей подписке."
+          />
+          <FAQItem
+            question="Что даёт программа лояльности?"
+            answer="За каждый потраченный рубль вы получаете 1 балл. Накапливайте баллы и получайте скидки до 15% на все покупки."
+          />
         </div>
       </div>
 
-      {/* Privacy & Terms */}
-      <div className="rounded-2xl bg-[#1A1A1A] p-5 border border-white/10">
-        <div className="flex items-center gap-3 mb-4">
-          <Shield className="w-5 h-5 text-[#6366F1]" />
-          <h3 className="font-semibold">Правовая информация</h3>
-        </div>
-        <div className="space-y-2 text-sm">
-          <button className="flex items-center justify-between w-full text-[#6B7280] hover:text-white transition-colors">
-            <span>Политика конфиденциальности</span>
-            <ExternalLink className="w-4 h-4" />
-          </button>
-          <button className="flex items-center justify-between w-full text-[#6B7280] hover:text-white transition-colors">
-            <span>Условия использования</span>
-            <ExternalLink className="w-4 h-4" />
-          </button>
-          <button className="flex items-center justify-between w-full text-[#6B7280] hover:text-white transition-colors">
-            <span>Политика возврата</span>
-            <ExternalLink className="w-4 h-4" />
-          </button>
-        </div>
+      {/* Bottom Info */}
+      <div className="rounded-2xl bg-[#1A1A1A]/50 p-4 border border-white/5 text-center">
+        <p className="text-sm text-[#6B7280]">
+          shftsecure VPN — быстрый и безопасный доступ в интернет
+        </p>
+        <p className="text-xs text-[#6B7280]/60 mt-1">
+          © 2024-2026 shftsecure
+        </p>
       </div>
-
-      {/* Version */}
-      <p className="text-center text-xs text-[#6B7280]">
-        shftsecure Mini App v1.0.0
-      </p>
     </div>
   );
 }
 
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  return (
+    <details className="rounded-2xl bg-[#1A1A1A] border border-white/10 overflow-hidden group">
+      <summary className="p-4 cursor-pointer list-none flex items-center justify-between">
+        <span className="font-medium pr-4">{question}</span>
+        <ChevronRight className="w-5 h-5 text-[#6B7280] transition-transform group-open:rotate-90 flex-shrink-0" />
+      </summary>
+      <div className="px-4 pb-4 text-sm text-[#6B7280] border-t border-white/5 pt-3 mt-1">
+        {answer}
+      </div>
+    </details>
+  );
+}

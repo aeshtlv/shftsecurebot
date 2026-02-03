@@ -7,7 +7,7 @@ export const SUBSCRIPTION_PLANS = [
     price: 129,
     traffic: '100 ГБ',
     trafficBytes: 100 * 1024 * 1024 * 1024,
-    badge: null,
+    popular: false,
   },
   {
     id: '3m',
@@ -16,7 +16,7 @@ export const SUBSCRIPTION_PLANS = [
     price: 299,
     traffic: '300 ГБ',
     trafficBytes: 300 * 1024 * 1024 * 1024,
-    badge: 'Популярный',
+    popular: true,
   },
   {
     id: '6m',
@@ -25,7 +25,7 @@ export const SUBSCRIPTION_PLANS = [
     price: 549,
     traffic: '600 ГБ',
     trafficBytes: 600 * 1024 * 1024 * 1024,
-    badge: null,
+    popular: false,
   },
   {
     id: '12m',
@@ -34,7 +34,7 @@ export const SUBSCRIPTION_PLANS = [
     price: 999,
     traffic: '1200 ГБ',
     trafficBytes: 1200 * 1024 * 1024 * 1024,
-    badge: 'Выгодный',
+    popular: false,
   },
 ] as const;
 
