@@ -46,8 +46,12 @@ export function Shop() {
       
       if (result.success && result.paymentUrl) {
         haptic('success');
-        // Открываем URL оплаты
-        window.open(result.paymentUrl, '_blank');
+        // Открываем URL оплаты через Telegram WebApp
+        if (window.Telegram?.WebApp?.openLink) {
+          window.Telegram.WebApp.openLink(result.paymentUrl);
+        } else {
+          window.open(result.paymentUrl, '_blank');
+        }
       } else {
         throw new Error(result.error || 'Ошибка создания платежа');
       }

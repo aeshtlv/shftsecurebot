@@ -462,6 +462,63 @@ async def check_payment_status(request: web.Request) -> web.Response:
         return web.json_response({'success': False, 'error': 'Внутренняя ошибка'}, status=500)
 
 
+# ==================== Webhook API ====================
+
+@routes.post('/webhook/yookassa')
+async def yookassa_webhook(request: web.Request) -> web.Response:
+    """Обрабатывает вебхуки от YooKassa."""
+    try:
+        data = await request.json()
+        logger.info(f"YooKassa webhook received: {data.get('event')}")
+        
+        event = data.get('event')
+        if event != 'payment.succeeded':
+            logger.info(f"Ignoring YooKassa event: {event}")
+            return web.json_response({'status': 'ok'})
+        
+        payment_object = data.get('object', {})
+        payment_id = payment_object.get('id')
+        
+        if not payment_id:
+            logger.error("YooKassa webhook: missing payment ID")
+            return web.json_response({'error': 'Missing payment ID'}, status=400)
+        
+        # Получаем платёж из БД
+        payment = Payment.get_by_yookassa_id(payment_id)
+        if not payment:
+            logger.error(f"YooKassa webhook: payment not found {payment_id}")
+            return web.json_response({'error': 'Payment not found'}, status=404)
+        
+        # Проверяем статус
+        if payment.get('status') == 'completed':
+            logger.info(f"YooKassa webhook: payment {payment_id} already completed")
+            return web.json_response({'status': 'ok'})
+        
+        # Обрабатываем платёж
+        bot = request.app.get('bot')
+        invoice_payload = payment.get('invoice_payload', '')
+        
+        if invoice_payload.startswith('yookassa_gift:'):
+            # Подарочный платёж
+            from src.services.yookassa_service import process_yookassa_gift_payment
+            result = await process_yookassa_gift_payment(payment_id, bot)
+        else:
+            # Обычный платёж за подписку
+            from src.services.yookassa_service import process_yookassa_payment
+            result = await process_yookassa_payment(payment_id, bot)
+        
+        if result.get('success'):
+            logger.info(f"YooKassa webhook: payment {payment_id} processed successfully")
+            return web.json_response({'status': 'ok'})
+        else:
+            logger.error(f"YooKassa webhook: failed to process payment {payment_id}")
+            return web.json_response({'error': result.get('error', 'Processing failed')}, status=500)
+        
+    except Exception as e:
+        logger.exception("Error processing YooKassa webhook")
+        return web.json_response({'error': 'Internal error'}, status=500)
+
+
 # ==================== Setup ====================
 
 def setup_routes(app: web.Application, bot_token: str, bot_instance=None):
