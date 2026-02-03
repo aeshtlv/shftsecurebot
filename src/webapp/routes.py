@@ -17,6 +17,14 @@ from src.utils.datetime_utils import to_utc_iso
 LOYALTY_THRESHOLDS = Loyalty.THRESHOLDS
 LOYALTY_DISCOUNTS = Loyalty.DISCOUNTS
 
+# Процентные скидки для отображения в Mini App
+LOYALTY_DISCOUNT_PERCENT = {
+    'bronze': 0,
+    'silver': 5,
+    'gold': 10,
+    'platinum': 15
+}
+
 routes = web.RouteTableDef()
 
 
@@ -100,7 +108,7 @@ async def get_user_profile(request: web.Request) -> web.Response:
         # Получаем данные лояльности
         points = loyalty_data.get('points', 0)
         loyalty_status = loyalty_data.get('status', 'bronze')
-        discount = LOYALTY_DISCOUNTS.get(loyalty_status, 0)
+        discount = LOYALTY_DISCOUNT_PERCENT.get(loyalty_status, 0)
         
         return web.json_response({
             'success': True,

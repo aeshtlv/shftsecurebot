@@ -46,7 +46,7 @@ export const LOYALTY_THRESHOLDS = {
   platinum: 2500,
 } as const;
 
-// Скидки по уровням лояльности
+// Скидки по уровням лояльности (в процентах для отображения)
 export const LOYALTY_DISCOUNTS = {
   bronze: 0,
   silver: 5,
