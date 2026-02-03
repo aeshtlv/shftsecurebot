@@ -1,3 +1,5 @@
-# Mini App Backend Integration
-# Скопируй сюда файлы из mini-app/backend/ для интеграции
+"""
+Mini App Backend - HTTP API для Telegram Web App.
+Обрабатывает запросы от Mini App фронтенда.
+"""
 
