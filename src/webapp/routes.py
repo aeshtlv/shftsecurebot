@@ -11,6 +11,7 @@ from src.database import BotUser, Loyalty, Payment, GiftCode
 from src.services.api_client import api_client, NotFoundError, ApiClientError
 from src.services.loyalty_service import get_price_with_discount
 from src.utils.logger import logger
+from src.utils.datetime_utils import to_utc_iso
 
 # Константы лояльности из класса Loyalty
 LOYALTY_THRESHOLDS = Loyalty.THRESHOLDS
@@ -247,16 +248,16 @@ async def activate_gift(request: web.Request) -> web.Response:
             info = user_remnawave.get('response', user_remnawave)
             current_expire = info.get('expireAt')
             
-            new_expire = datetime.now() + timedelta(days=subscription_days)
+            new_expire = datetime.utcnow() + timedelta(days=subscription_days)
             if current_expire:
                 try:
                     expire_dt = datetime.fromisoformat(current_expire.replace('Z', '+00:00'))
-                    if expire_dt.replace(tzinfo=None) > datetime.now():
+                    if expire_dt.replace(tzinfo=None) > datetime.utcnow():
                         new_expire = expire_dt.replace(tzinfo=None) + timedelta(days=subscription_days)
                 except Exception:
                     pass
             
-            expire_str = new_expire.replace(microsecond=0).isoformat() + 'Z'
+            expire_str = to_utc_iso(new_expire)
             await api_client.update_user(existing_uuid, expireAt=expire_str)
             GiftCode.activate(code, user.id, existing_uuid)
             
@@ -267,7 +268,7 @@ async def activate_gift(request: web.Request) -> web.Response:
         else:
             # Создаём нового пользователя
             base_username = (user.username or '').lstrip('@') or f'user{user.id}'
-            expire_date = (datetime.now() + timedelta(days=subscription_days)).replace(microsecond=0).isoformat() + 'Z'
+            expire_date = to_utc_iso(datetime.utcnow() + timedelta(days=subscription_days))
             
             internal_squads = settings.default_internal_squads if settings.default_internal_squads else None
             

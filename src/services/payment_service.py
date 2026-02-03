@@ -7,6 +7,7 @@ from aiogram.types import LabeledPrice
 from src.config import get_settings
 from src.database import GiftCode, Payment
 from src.utils.logger import logger
+from src.utils.datetime_utils import to_utc_iso
 
 
 def get_stars_amount(subscription_months: int, user_id: int | None = None) -> int:
@@ -202,7 +203,7 @@ async def process_successful_payment(
         username = bot_user.get("username") or f"user_{user_id}"
         
         # Вычисляем дату истечения
-        expire_date = (datetime.now() + timedelta(days=subscription_days)).replace(microsecond=0).isoformat() + "Z"
+        expire_date = to_utc_iso(datetime.utcnow() + timedelta(days=subscription_days))
         
         # Создаем пользователя в Remnawave
         from src.services.api_client import api_client
@@ -236,8 +237,8 @@ async def process_successful_payment(
                 if current_expire:
                     # Продлеваем подписку от текущей даты
                     current_dt = datetime.fromisoformat(current_expire.replace("Z", "+00:00"))
-                    if current_dt > datetime.now(current_dt.tzinfo):
-                        expire_date = (current_dt + timedelta(days=subscription_days)).replace(microsecond=0).isoformat() + "Z"
+                    if current_dt.replace(tzinfo=None) > datetime.utcnow():
+                        expire_date = to_utc_iso(current_dt.replace(tzinfo=None) + timedelta(days=subscription_days))
                 
                 await api_client.update_user(remnawave_uuid, expireAt=expire_date)
                 user_uuid = remnawave_uuid
