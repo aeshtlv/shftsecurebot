@@ -9,7 +9,6 @@ import { getTelegramUser } from '../api/client';
 export function Dashboard() {
   const { data: profile, loading, error } = useUserProfile();
   const [copied, setCopied] = useState<'config' | 'link' | null>(null);
-  const [showQrModal, setShowQrModal] = useState(false);
 
   // Копирование конфига подписки
   const handleCopyConfig = async () => {
@@ -44,11 +43,12 @@ export function Dashboard() {
   const handleShowQr = () => {
     if (!profile?.subscription?.subscriptionUrl) {
       haptic('error');
-      toast.error('Нет активной подписки');
       return;
     }
     haptic('light');
-    setShowQrModal(true);
+    // Открываем URL с QR-кодом через Telegram
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(profile.subscription.subscriptionUrl)}`;
+    window.open(qrUrl, '_blank');
   };
 
   // Поделиться реферальной ссылкой
@@ -356,51 +356,6 @@ export function Dashboard() {
                 }
               </p>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* QR Code Modal */}
-      {showQrModal && profile?.subscription?.subscriptionUrl && (
-        <div 
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setShowQrModal(false)}
-        >
-          <div 
-            className="bg-[#1A1A1A] rounded-3xl p-6 max-w-sm w-full border border-white/10 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">QR-код подписки</h3>
-              <button
-                onClick={() => setShowQrModal(false)}
-                className="text-[#6B7280] hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="bg-white p-4 rounded-2xl mb-4">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(profile.subscription.subscriptionUrl)}`}
-                alt="QR Code"
-                className="w-full h-auto"
-              />
-            </div>
-            
-            <p className="text-sm text-[#6B7280] text-center mb-4">
-              Отсканируйте QR-код в приложении VPN
-            </p>
-            
-            <button
-              onClick={() => {
-                setShowQrModal(false);
-                handleCopyConfig();
-              }}
-              className="w-full bg-[#6366F1] hover:bg-[#5558E3] text-white py-3 rounded-xl font-medium transition-colors"
-            >
-              Скопировать ссылку
-            </button>
           </div>
         </div>
       )}
