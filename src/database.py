@@ -247,7 +247,7 @@ class BotUser:
                 (telegram_id,)
             )
             row = cursor.fetchone()
-            return bool(row[0]) if row and row[0] is not None else False
+            return bool(row.get('auto_renewal')) if row and row.get('auto_renewal') is not None else False
     
     @staticmethod
     def update_last_renewal_notification(telegram_id: int):
