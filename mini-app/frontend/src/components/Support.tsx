@@ -1,4 +1,4 @@
-import { MessageCircle, Mail, ChevronRight, Shield, Zap } from 'lucide-react';
+import { MessageCircle, Mail, ChevronRight, Shield, Zap, Clock } from 'lucide-react';
 import { haptic } from '../lib/utils';
 
 export function Support() {
@@ -48,11 +48,11 @@ export function Support() {
         <div className="grid grid-cols-1 gap-3">
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#10B981]/20 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-[#10B981]" />
+              <Clock className="w-6 h-6 text-[#10B981]" />
             </div>
             <div>
-              <p className="font-semibold">🌍 Глобальный доступ</p>
-              <p className="text-sm text-[#6B7280]">Надёжное соединение по всему миру</p>
+              <p className="font-semibold">Быстрый ответ</p>
+              <p className="text-sm text-[#6B7280]">Отвечаем в течение 15 минут</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -60,8 +60,8 @@ export function Support() {
               <Zap className="w-6 h-6 text-[#6366F1]" />
             </div>
             <div>
-              <p className="font-semibold">🔌 Простое подключение</p>
-              <p className="text-sm text-[#6B7280]">Быстрая настройка без сложных шагов</p>
+              <p className="font-semibold">Высокая скорость</p>
+              <p className="text-sm text-[#6B7280]">Серверы в 10+ странах мира</p>
             </div>
           </div>
           <div className="rounded-2xl bg-[#1A1A1A] p-4 border border-white/10 flex items-center gap-4">
@@ -69,8 +69,8 @@ export function Support() {
               <Shield className="w-6 h-6 text-[#F59E0B]" />
             </div>
             <div>
-              <p className="font-semibold">🔒 Приватность</p>
-              <p className="text-sm text-[#6B7280]">Мы не храним ваши логи</p>
+              <p className="font-semibold">Безопасность</p>
+              <p className="text-sm text-[#6B7280]">Шифрование всего трафика</p>
             </div>
           </div>
         </div>
@@ -107,8 +107,8 @@ export function Support() {
         </h3>
         <div className="space-y-3">
           <FAQItem
-            question="Как подключить защищённое соединение?"
-            answer="Скопируйте конфиг на главной странице shftsecure и вставьте его в любое приложение для защищённого интернет-соединения: v2rayTun (Android), Happ (iOS), Hiddify (Windows/Mac)."
+            question="Как подключить VPN?"
+            answer="Скопируйте конфиг на главной странице и вставьте его в любое приложение для VPN: v2rayNG (Android), Streisand (iOS), Hiddify (Windows/Mac)."
           />
           <FAQItem
             question="Как продлить подписку?"
@@ -128,10 +128,10 @@ export function Support() {
       {/* Bottom Info */}
       <div className="rounded-2xl bg-[#1A1A1A]/50 p-4 border border-white/5 text-center">
         <p className="text-sm text-[#6B7280]">
-        shftsecure — сервис защищенного интернет-соединения
+          shftsecure VPN — быстрый и безопасный доступ в интернет
         </p>
         <p className="text-xs text-[#6B7280]/60 mt-1">
-          © 2025-2026 shftsecure
+          © 2024-2026 shftsecure
         </p>
       </div>
     </div>
