@@ -58,40 +58,40 @@ export default function App() {
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#1A1A1A]/95 backdrop-blur-xl border-t border-white/10 safe-area-bottom">
-        <div className="max-w-md mx-auto px-2 py-3">
-          <div className="flex items-center justify-around">
+        <div className="max-w-md mx-auto px-1 py-2">
+          <div className="grid grid-cols-6 gap-0">
             <TabButton
-              icon={<Home className="w-5 h-5" />}
+              icon={<Home className="w-[18px] h-[18px]" />}
               label="Главная"
               active={activeTab === 'dashboard'}
               onClick={() => handleTabChange('dashboard')}
             />
             <TabButton
-              icon={<Award className="w-5 h-5" />}
+              icon={<Award className="w-[18px] h-[18px]" />}
               label="Статус"
               active={activeTab === 'loyalty'}
               onClick={() => handleTabChange('loyalty')}
             />
             <TabButton
-              icon={<ShoppingBag className="w-5 h-5" />}
+              icon={<ShoppingBag className="w-[18px] h-[18px]" />}
               label="Магазин"
               active={activeTab === 'shop'}
               onClick={() => handleTabChange('shop')}
             />
             <TabButton
-              icon={<Gift className="w-5 h-5" />}
+              icon={<Gift className="w-[18px] h-[18px]" />}
               label="Подарки"
               active={activeTab === 'gifts'}
               onClick={() => handleTabChange('gifts')}
             />
             <TabButton
-              icon={<Clock className="w-5 h-5" />}
+              icon={<Clock className="w-[18px] h-[18px]" />}
               label="История"
               active={activeTab === 'history'}
               onClick={() => handleTabChange('history')}
             />
             <TabButton
-              icon={<HelpCircle className="w-5 h-5" />}
+              icon={<HelpCircle className="w-[18px] h-[18px]" />}
               label="Помощь"
               active={activeTab === 'support'}
               onClick={() => handleTabChange('support')}
@@ -112,12 +112,14 @@ function TabButton({ icon, label, active, onClick }: {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+      className={`flex flex-col items-center justify-center gap-0.5 px-1 py-2 rounded-lg transition-colors min-w-0 ${
         active ? 'text-[#6366F1]' : 'text-[#6B7280] hover:text-white'
       }`}
     >
       {icon}
-      <span className="text-[10px] font-medium">{label}</span>
+      <span className="text-[9px] font-medium leading-tight text-center whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-0.5">
+        {label}
+      </span>
     </button>
   );
 }
