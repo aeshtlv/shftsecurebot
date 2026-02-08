@@ -78,9 +78,12 @@ async def notify_payment_success(
     subscription_months: int,
     stars: int,
     remnawave_uuid: str,
-    expire_date: str
+    expire_date: str,
+    subscription_url: Optional[str] = None
 ) -> None:
     """Уведомление об успешной оплате."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
     user_mention = f"@{username}" if username else f"User {user_id}"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -98,7 +101,7 @@ async def notify_payment_success(
     
     await send_admin_notification(bot, admin_text)
     
-    # Уведомление пользователю
+    # Уведомление пользователю с кнопкой конфига
     try:
         user_text = (
             f"✅ <b>Оплата успешна!</b>\n\n"
@@ -107,7 +110,15 @@ async def notify_payment_success(
             f"⏳ Действует до: <code>{expire_date}</code>\n\n"
             f"Приятного пользования! 🚀"
         )
-        await bot.send_message(user_id, user_text, parse_mode="HTML")
+        
+        # Добавляем кнопку с конфигом, если есть ссылка
+        keyboard = None
+        if subscription_url:
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📥 Получить конфиг", url=subscription_url)]
+            ])
+        
+        await bot.send_message(user_id, user_text, parse_mode="HTML", reply_markup=keyboard)
         logger.info(f"Payment success notification sent to user {user_id}")
     except Exception as e:
         logger.warning(f"Failed to send payment notification to user {user_id}: {e}")
@@ -120,9 +131,12 @@ async def notify_yookassa_payment_success(
     subscription_months: int,
     amount_rub: float,
     remnawave_uuid: str,
-    expire_date: str
+    expire_date: str,
+    subscription_url: Optional[str] = None
 ) -> None:
     """Уведомление об успешной оплате через YooKassa."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
     user_mention = f"@{username}" if username else f"User {user_id}"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -140,7 +154,7 @@ async def notify_yookassa_payment_success(
     
     await send_admin_notification(bot, admin_text)
     
-    # Уведомление пользователю
+    # Уведомление пользователю с кнопкой конфига
     try:
         user_text = (
             f"✅ <b>Оплата получена!</b>\n\n"
@@ -150,7 +164,15 @@ async def notify_yookassa_payment_success(
             f"⏳ Действует до: <code>{expire_date}</code>\n\n"
             f"Приятного пользования! 🚀"
         )
-        await bot.send_message(user_id, user_text, parse_mode="HTML")
+        
+        # Добавляем кнопку с конфигом, если есть ссылка
+        keyboard = None
+        if subscription_url:
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📥 Получить конфиг", url=subscription_url)]
+            ])
+        
+        await bot.send_message(user_id, user_text, parse_mode="HTML", reply_markup=keyboard)
         logger.info(f"YooKassa payment success notification sent to user {user_id}")
     except Exception as e:
         logger.warning(f"Failed to send YooKassa payment notification to user {user_id}: {e}")

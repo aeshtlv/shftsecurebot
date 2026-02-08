@@ -434,7 +434,8 @@ async def process_successful_payment(
                     subscription_months,
                     total_amount,
                     user_uuid,
-                    expire_date
+                    expire_date,
+                    subscription_url  # Передаём ссылку на конфиг
                 )
             except Exception as notif_exc:
                 logger.warning("Failed to send payment success notification: %s", notif_exc)

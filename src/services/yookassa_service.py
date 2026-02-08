@@ -392,38 +392,8 @@ async def process_yookassa_payment(
             if payment["status"] != "completed":
                 Payment.update_status(payment["id"], "completed", result.get("user_uuid"))
             
-            # Отправляем уведомление пользователю о успешной оплате
-            if bot:
-                try:
-                    from src.services.notification_service import notify_yookassa_payment_success
-                    from src.database import BotUser
-                    
-                    bot_user = BotUser.get_or_create(user_id, None)
-                    username = bot_user.get("username")
-                    amount_rub = payment.get("amount_rub", 0)
-                    expire_date_str = result.get("expire_date", "")
-                    
-                    # Форматируем дату для отображения
-                    if expire_date_str:
-                        try:
-                            expire_dt = datetime.fromisoformat(expire_date_str.replace('Z', '+00:00'))
-                            expire_formatted = expire_dt.strftime('%d.%m.%Y')
-                        except:
-                            expire_formatted = expire_date_str
-                    else:
-                        expire_formatted = "Не указана"
-                    
-                    await notify_yookassa_payment_success(
-                        bot,
-                        user_id,
-                        username,
-                        subscription_months,
-                        amount_rub,
-                        result.get("user_uuid", ""),
-                        expire_formatted
-                    )
-                except Exception as notif_exc:
-                    logger.warning("Failed to send YooKassa payment notification: %s", notif_exc)
+            # Уведомление пользователю уже отправлено в process_successful_payment
+            # Не дублируем его здесь
             
             return result
         else:
