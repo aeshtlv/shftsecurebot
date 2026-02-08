@@ -25,7 +25,7 @@ else:
 
 class Settings(BaseSettings):
     bot_token: str = Field(..., alias="BOT_TOKEN")
-    bot_username: str = Field(default="shftsecure_bot", alias="BOT_USERNAME")
+    bot_username: str = Field(default="shftsecurebot", alias="BOT_USERNAME")
     api_base_url: AnyHttpUrl = Field(..., alias="API_BASE_URL")
     api_token: str | None = Field(default=None, alias="API_TOKEN")
     default_locale: str = Field("ru", alias="DEFAULT_LOCALE")

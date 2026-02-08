@@ -2503,7 +2503,7 @@ async def cb_check_gift_payment_status(callback: CallbackQuery) -> None:
                     
                     from src.config import get_settings
                     settings = get_settings()
-                    bot_username = settings.bot_username or "shftsecure_bot"
+                    bot_username = settings.bot_username or "shftsecurebot"
                     
                     buttons = [
                         [

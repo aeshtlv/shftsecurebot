@@ -110,7 +110,7 @@ async def process_successful_payment_message(message: Message) -> None:
                         # Кнопки: поделиться подарком и посмотреть свои подарки
                         from src.config import get_settings
                         settings = get_settings()
-                        bot_username = settings.bot_username or "shftsecure_bot"
+                        bot_username = settings.bot_username or "shftsecurebot"
                         share_text = _("gift.share_text").format(
                             code=gift_code,
                             bot_link=f"https://t.me/{bot_username}"
