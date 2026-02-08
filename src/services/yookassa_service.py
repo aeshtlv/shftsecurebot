@@ -101,7 +101,7 @@ async def create_yookassa_payment(
             },
             "confirmation": {
                 "type": confirmation_type,
-                "return_url": settings.yookassa_return_url or "https://t.me/shftsecure_bot"
+                "return_url": settings.yookassa_return_url or "https://t.me/shftsecurebot"
             },
             "capture": True,
             "description": description,
@@ -509,7 +509,7 @@ async def create_yookassa_gift_payment(
             },
             "confirmation": {
                 "type": confirmation_type,
-                "return_url": settings.yookassa_return_url or "https://t.me/shftsecure_bot"
+                "return_url": settings.yookassa_return_url or "https://t.me/shftsecurebot"
             },
             "capture": True,
             "description": description[:128],
