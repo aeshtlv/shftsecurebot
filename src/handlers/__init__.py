@@ -13,6 +13,7 @@ from src.handlers.system import router as system_router
 from src.handlers.users import router as users_router
 from src.handlers.user_public import router as user_public_router
 from src.handlers.payments import router as payments_router
+from src.handlers.migration import router as migration_router
 
 
 def register_handlers(dp: Dispatcher) -> None:
@@ -23,6 +24,7 @@ def register_handlers(dp: Dispatcher) -> None:
     dp.include_router(user_public_router)
     # Затем общие роутеры (commands, navigation), затем доменные
     dp.include_router(commands_router)
+    dp.include_router(migration_router)
     dp.include_router(navigation_router)
     dp.include_router(users_router)
     dp.include_router(nodes_router)
