@@ -101,7 +101,7 @@ async def create_yookassa_payment(
             },
             "confirmation": {
                 "type": confirmation_type,
-                "return_url": "https://t.me/shftsecurebot"  # Возврат в бота после оплаты
+                "return_url": settings.yookassa_return_url or "https://t.me/shftsecure_bot"
             },
             "capture": True,
             "description": description,

@@ -1,10 +1,11 @@
-// Цены подписок (синхронизировано с ботом)
+// Цены подписок (синхронизировано с ботом и env.sample)
+// ВАЖНО: Эти цены должны совпадать с SUBSCRIPTION_RUB_* в .env на сервере!
 export const SUBSCRIPTION_PLANS = [
   {
     id: '1m',
     months: 1,
     period: '1 месяц',
-    price: 129,
+    price: 500,  // SUBSCRIPTION_RUB_1MONTH
     traffic: 'Для знакомства',
     trafficBytes: 100 * 1024 * 1024 * 1024,
     popular: false,
@@ -13,7 +14,7 @@ export const SUBSCRIPTION_PLANS = [
     id: '3m',
     months: 3,
     period: '3 месяца',
-    price: 299,
+    price: 1200,  // SUBSCRIPTION_RUB_3MONTHS
     traffic: 'Популярный выбор',
     trafficBytes: 300 * 1024 * 1024 * 1024,
     popular: true,
@@ -22,7 +23,7 @@ export const SUBSCRIPTION_PLANS = [
     id: '6m',
     months: 6,
     period: '6 месяцев',
-    price: 549,
+    price: 2200,  // SUBSCRIPTION_RUB_6MONTHS
     traffic: 'Для постоянных',
     trafficBytes: 600 * 1024 * 1024 * 1024,
     popular: false,
@@ -31,7 +32,7 @@ export const SUBSCRIPTION_PLANS = [
     id: '12m',
     months: 12,
     period: '12 месяцев',
-    price: 999,
+    price: 4000,  // SUBSCRIPTION_RUB_12MONTHS
     traffic: 'Всё включено',
     trafficBytes: 1200 * 1024 * 1024 * 1024,
     popular: false,
