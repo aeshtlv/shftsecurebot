@@ -277,7 +277,7 @@ class BotUser:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT telegram_id FROM bot_users")
-            return [row[0] for row in cursor.fetchall()]
+            return [row['telegram_id'] for row in cursor.fetchall()]
     
     @staticmethod
     def get_users_with_subscription() -> list[int]:
@@ -288,7 +288,7 @@ class BotUser:
                 SELECT telegram_id FROM bot_users 
                 WHERE remnawave_user_uuid IS NOT NULL
             """)
-            return [row[0] for row in cursor.fetchall()]
+            return [row['telegram_id'] for row in cursor.fetchall()]
     
     @staticmethod
     def get_users_without_subscription() -> list[int]:
@@ -299,7 +299,7 @@ class BotUser:
                 SELECT telegram_id FROM bot_users 
                 WHERE remnawave_user_uuid IS NULL
             """)
-            return [row[0] for row in cursor.fetchall()]
+            return [row['telegram_id'] for row in cursor.fetchall()]
     
     @staticmethod
     def get_user_count() -> dict:
