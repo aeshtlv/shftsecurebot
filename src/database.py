@@ -306,11 +306,11 @@ class BotUser:
         """Получает количество пользователей по категориям."""
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM bot_users")
-            total = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) as count FROM bot_users")
+            total = cursor.fetchone()['count']
             
-            cursor.execute("SELECT COUNT(*) FROM bot_users WHERE remnawave_user_uuid IS NOT NULL")
-            with_sub = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) as count FROM bot_users WHERE remnawave_user_uuid IS NOT NULL")
+            with_sub = cursor.fetchone()['count']
             
             return {
                 'total': total,
@@ -342,10 +342,10 @@ class Referral:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?",
+                "SELECT COUNT(*) as count FROM referrals WHERE referrer_id = ?",
                 (referrer_id,)
             )
-            return cursor.fetchone()[0]
+            return cursor.fetchone()['count']
     
     @staticmethod
     def get_bonus_days(referrer_id: int) -> int:
@@ -353,10 +353,10 @@ class Referral:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT SUM(bonus_days) FROM referrals WHERE referrer_id = ?",
+                "SELECT SUM(bonus_days) as total FROM referrals WHERE referrer_id = ?",
                 (referrer_id,)
             )
-            result = cursor.fetchone()[0]
+            result = cursor.fetchone()['total']
             return result if result else 0
     
     @staticmethod
