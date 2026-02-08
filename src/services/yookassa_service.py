@@ -650,6 +650,17 @@ async def process_yookassa_gift_payment(
     # Обновляем статус платежа
     Payment.update_status(payment["id"], "completed")
     
+    # Начисляем баллы лояльности за покупку подарка
+    from src.database import Loyalty
+    try:
+        loyalty_result = Loyalty.add_points(user_id, amount_rub)
+        logger.info(
+            f"Loyalty points added for gift purchase: +{amount_rub} points, "
+            f"total: {loyalty_result['points']}, status: {loyalty_result['status']}"
+        )
+    except Exception as loyalty_exc:
+        logger.warning(f"Failed to add loyalty points for gift purchase: {loyalty_exc}")
+    
     logger.info(f"YooKassa gift code created: {gift['code']} for user {user_id}")
     
     # Отправляем уведомление пользователю о созданном подарке

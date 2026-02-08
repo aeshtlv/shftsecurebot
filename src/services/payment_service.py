@@ -590,6 +590,28 @@ async def process_successful_gift_payment(
         # Обновляем статус платежа
         Payment.update_status(payment["id"], "completed")
         
+        # Начисляем баллы лояльности за покупку подарка
+        # Конвертируем Stars в рубли для начисления баллов (используем базовые цены подписок)
+        from src.database import Loyalty
+        from src.config import get_settings
+        settings = get_settings()
+        rub_prices = {
+            1: settings.subscription_rub_1month,
+            3: settings.subscription_rub_3months,
+            6: settings.subscription_rub_6months,
+            12: settings.subscription_rub_12months,
+        }
+        amount_rub_equivalent = rub_prices.get(subscription_months, 0)
+        
+        try:
+            loyalty_result = Loyalty.add_points(user_id, amount_rub_equivalent)
+            logger.info(
+                f"Loyalty points added for gift purchase (Stars): +{amount_rub_equivalent} points, "
+                f"total: {loyalty_result['points']}, status: {loyalty_result['status']}"
+            )
+        except Exception as loyalty_exc:
+            logger.warning(f"Failed to add loyalty points for gift purchase: {loyalty_exc}")
+        
         logger.info(f"Gift code created: {gift['code']} for user {user_id}")
         
         # Отправляем уведомление админам
