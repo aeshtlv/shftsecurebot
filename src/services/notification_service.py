@@ -101,22 +101,29 @@ async def notify_payment_success(
     
     await send_admin_notification(bot, admin_text)
     
-    # Уведомление пользователю с кнопкой конфига
+    # Форматируем дату для отображения (только дата, без времени)
+    expire_formatted = expire_date
+    if 'T' in expire_date or 'Z' in expire_date:
+        try:
+            expire_dt = datetime.fromisoformat(expire_date.replace('Z', '+00:00'))
+            expire_formatted = expire_dt.strftime('%d.%m.%Y')
+        except:
+            expire_formatted = expire_date.split('T')[0] if 'T' in expire_date else expire_date
+    
+    # Уведомление пользователю с кнопкой "Мой доступ"
     try:
         user_text = (
             f"✅ <b>Оплата успешна!</b>\n\n"
             f"Ваша подписка активирована.\n\n"
             f"📅 Период: <b>{subscription_months} мес.</b>\n"
-            f"⏳ Действует до: <code>{expire_date}</code>\n\n"
+            f"⏳ Действует до: <code>{expire_formatted}</code>\n\n"
             f"Приятного пользования! 🚀"
         )
         
-        # Добавляем кнопку с конфигом, если есть ссылка
-        keyboard = None
-        if subscription_url:
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📥 Получить конфиг", url=subscription_url)]
-            ])
+        # Кнопка "Мой доступ" (callback кнопка из главного меню)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔐 Мой доступ", callback_data="user:my_access")]
+        ])
         
         await bot.send_message(user_id, user_text, parse_mode="HTML", reply_markup=keyboard)
         logger.info(f"Payment success notification sent to user {user_id}")
@@ -154,23 +161,30 @@ async def notify_yookassa_payment_success(
     
     await send_admin_notification(bot, admin_text)
     
-    # Уведомление пользователю с кнопкой конфига
+    # Форматируем дату для отображения (только дата, без времени)
+    expire_formatted = expire_date
+    if 'T' in expire_date or 'Z' in expire_date:
+        try:
+            expire_dt = datetime.fromisoformat(expire_date.replace('Z', '+00:00'))
+            expire_formatted = expire_dt.strftime('%d.%m.%Y')
+        except:
+            expire_formatted = expire_date.split('T')[0] if 'T' in expire_date else expire_date
+    
+    # Уведомление пользователю с кнопкой "Мой доступ"
     try:
         user_text = (
             f"✅ <b>Оплата получена!</b>\n\n"
             f"Ваша подписка успешно активирована.\n\n"
             f"💳 Сумма: <b>{amount_rub}₽</b>\n"
             f"📅 Период: <b>{subscription_months} мес.</b>\n"
-            f"⏳ Действует до: <code>{expire_date}</code>\n\n"
+            f"⏳ Действует до: <code>{expire_formatted}</code>\n\n"
             f"Приятного пользования! 🚀"
         )
         
-        # Добавляем кнопку с конфигом, если есть ссылка
-        keyboard = None
-        if subscription_url:
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📥 Получить конфиг", url=subscription_url)]
-            ])
+        # Кнопка "Мой доступ" (callback кнопка из главного меню)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔐 Мой доступ", callback_data="user:my_access")]
+        ])
         
         await bot.send_message(user_id, user_text, parse_mode="HTML", reply_markup=keyboard)
         logger.info(f"YooKassa payment success notification sent to user {user_id}")
