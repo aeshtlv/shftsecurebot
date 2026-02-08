@@ -84,7 +84,8 @@ async def notify_payment_success(
     user_mention = f"@{username}" if username else f"User {user_id}"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    text = (
+    # Уведомление админам
+    admin_text = (
         f"💰 <b>Новая покупка</b>\n\n"
         f"👤 Пользователь: {user_mention}\n"
         f"🆔 Telegram ID: <code>{user_id}</code>\n"
@@ -95,7 +96,64 @@ async def notify_payment_success(
         f"📅 Время: {timestamp}"
     )
     
-    await send_admin_notification(bot, text)
+    await send_admin_notification(bot, admin_text)
+    
+    # Уведомление пользователю
+    try:
+        user_text = (
+            f"✅ <b>Оплата успешна!</b>\n\n"
+            f"Ваша подписка активирована.\n\n"
+            f"📅 Период: <b>{subscription_months} мес.</b>\n"
+            f"⏳ Действует до: <code>{expire_date}</code>\n\n"
+            f"Приятного пользования! 🚀"
+        )
+        await bot.send_message(user_id, user_text, parse_mode="HTML")
+        logger.info(f"Payment success notification sent to user {user_id}")
+    except Exception as e:
+        logger.warning(f"Failed to send payment notification to user {user_id}: {e}")
+
+
+async def notify_yookassa_payment_success(
+    bot: Bot,
+    user_id: int,
+    username: Optional[str],
+    subscription_months: int,
+    amount_rub: float,
+    remnawave_uuid: str,
+    expire_date: str
+) -> None:
+    """Уведомление об успешной оплате через YooKassa."""
+    user_mention = f"@{username}" if username else f"User {user_id}"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Уведомление админам
+    admin_text = (
+        f"💰 <b>Новая покупка (YooKassa)</b>\n\n"
+        f"👤 Пользователь: {user_mention}\n"
+        f"🆔 Telegram ID: <code>{user_id}</code>\n"
+        f"💳 Сумма: <b>{amount_rub}₽</b>\n"
+        f"📅 Период: <b>{subscription_months} мес.</b>\n"
+        f"🔗 UUID: <code>{remnawave_uuid}</code>\n"
+        f"⏳ Истекает: <code>{expire_date}</code>\n"
+        f"📅 Время: {timestamp}"
+    )
+    
+    await send_admin_notification(bot, admin_text)
+    
+    # Уведомление пользователю
+    try:
+        user_text = (
+            f"✅ <b>Оплата получена!</b>\n\n"
+            f"Ваша подписка успешно активирована.\n\n"
+            f"💳 Сумма: <b>{amount_rub}₽</b>\n"
+            f"📅 Период: <b>{subscription_months} мес.</b>\n"
+            f"⏳ Действует до: <code>{expire_date}</code>\n\n"
+            f"Приятного пользования! 🚀"
+        )
+        await bot.send_message(user_id, user_text, parse_mode="HTML")
+        logger.info(f"YooKassa payment success notification sent to user {user_id}")
+    except Exception as e:
+        logger.warning(f"Failed to send YooKassa payment notification to user {user_id}: {e}")
 
 
 async def notify_referral_bonus(

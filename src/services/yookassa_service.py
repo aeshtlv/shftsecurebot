@@ -391,6 +391,40 @@ async def process_yookassa_payment(
             # Обновляем статус платежа (если еще не обновлен в process_successful_payment)
             if payment["status"] != "completed":
                 Payment.update_status(payment["id"], "completed", result.get("user_uuid"))
+            
+            # Отправляем уведомление пользователю о успешной оплате
+            if bot:
+                try:
+                    from src.services.notification_service import notify_yookassa_payment_success
+                    from src.database import BotUser
+                    
+                    bot_user = BotUser.get_or_create(user_id, None)
+                    username = bot_user.get("username")
+                    amount_rub = payment.get("amount_rub", 0)
+                    expire_date_str = result.get("expire_date", "")
+                    
+                    # Форматируем дату для отображения
+                    if expire_date_str:
+                        try:
+                            expire_dt = datetime.fromisoformat(expire_date_str.replace('Z', '+00:00'))
+                            expire_formatted = expire_dt.strftime('%d.%m.%Y')
+                        except:
+                            expire_formatted = expire_date_str
+                    else:
+                        expire_formatted = "Не указана"
+                    
+                    await notify_yookassa_payment_success(
+                        bot,
+                        user_id,
+                        username,
+                        subscription_months,
+                        amount_rub,
+                        result.get("user_uuid", ""),
+                        expire_formatted
+                    )
+                except Exception as notif_exc:
+                    logger.warning("Failed to send YooKassa payment notification: %s", notif_exc)
+            
             return result
         else:
             Payment.update_status(payment["id"], "failed")
@@ -647,6 +681,22 @@ async def process_yookassa_gift_payment(
     Payment.update_status(payment["id"], "completed")
     
     logger.info(f"YooKassa gift code created: {gift['code']} for user {user_id}")
+    
+    # Отправляем уведомление пользователю о созданном подарке
+    if bot:
+        try:
+            gift_text = (
+                f"✅ <b>Оплата получена!</b>\n\n"
+                f"Ваш подарочный код готов:\n\n"
+                f"🎁 <code>{gift['code']}</code>\n\n"
+                f"📅 Срок: <b>{subscription_days} дней</b>\n"
+                f"💰 Сумма: <b>{amount_rub}₽</b>\n\n"
+                f"Отправьте этот код другу для активации подписки!"
+            )
+            await bot.send_message(user_id, gift_text, parse_mode="HTML")
+            logger.info(f"Gift code notification sent to user {user_id}")
+        except Exception as e:
+            logger.warning(f"Failed to send gift notification to user {user_id}: {e}")
     
     # Отправляем уведомление админам
     if bot:
