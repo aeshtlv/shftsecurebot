@@ -133,7 +133,7 @@ export function Gifts() {
           <div className="space-y-3">
             {SUBSCRIPTION_PLANS.map((plan) => {
               const isSelected = selectedPlan === plan.id;
-              const discountedPrice = getDiscountedPrice(plan.price, loyaltyLevel);
+              const discountedPrice = getDiscountedPrice(plan.price, loyaltyLevel, plan.months);
 
               return (
                 <button

@@ -118,7 +118,7 @@ export function Shop() {
   };
 
   const selectedPlanData = SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan);
-  const finalPrice = selectedPlanData ? getDiscountedPrice(selectedPlanData.price, loyaltyLevel) : 0;
+  const finalPrice = selectedPlanData ? getDiscountedPrice(selectedPlanData.price, loyaltyLevel, selectedPlanData.months) : 0;
 
   if (profileLoading) {
     return (
@@ -165,7 +165,7 @@ export function Shop() {
         <div className="space-y-3">
           {SUBSCRIPTION_PLANS.map((plan) => {
             const isSelected = selectedPlan === plan.id;
-            const discountedPrice = getDiscountedPrice(plan.price, loyaltyLevel);
+            const discountedPrice = getDiscountedPrice(plan.price, loyaltyLevel, plan.months);
             const hasDiscount = discountedPrice < plan.price;
 
             return (

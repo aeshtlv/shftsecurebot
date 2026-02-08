@@ -47,7 +47,16 @@ export const LOYALTY_THRESHOLDS = {
   platinum: 2500,
 } as const;
 
-// Скидки по уровням лояльности (в процентах для отображения)
+// Скидки по уровням лояльности (фиксированные в рублях, синхронизировано с backend)
+// Формат: { уровень: { месяцы: скидка_в_рублях } }
+export const LOYALTY_DISCOUNTS_RUB = {
+  bronze: { 1: 0, 3: 0, 6: 0, 12: 0 },
+  silver: { 1: 10, 3: 20, 6: 30, 12: 50 },      // ~5%
+  gold: { 1: 14, 3: 30, 6: 60, 12: 100 },       // ~10%
+  platinum: { 1: 20, 3: 50, 6: 90, 12: 150 }    // ~15%
+} as const;
+
+// Для обратной совместимости: средние проценты по уровням
 export const LOYALTY_DISCOUNTS = {
   bronze: 0,
   silver: 5,
@@ -72,7 +81,16 @@ export function getLoyaltyLevel(points: number): LoyaltyLevel {
   return 'bronze';
 }
 
-export function getDiscountedPrice(price: number, level: LoyaltyLevel): number {
+export function getDiscountedPrice(price: number, level: LoyaltyLevel, months?: number): number {
+  // Если указано количество месяцев, используем фиксированную скидку в рублях
+  if (months && LOYALTY_DISCOUNTS_RUB[level]) {
+    const discountRub = LOYALTY_DISCOUNTS_RUB[level][months as keyof typeof LOYALTY_DISCOUNTS_RUB[typeof level]];
+    if (discountRub !== undefined) {
+      return Math.max(price - discountRub, 0);
+    }
+  }
+  
+  // Fallback: используем процентную скидку (для обратной совместимости)
   const discount = LOYALTY_DISCOUNTS[level];
   return Math.ceil(price * (100 - discount) / 100);
 }

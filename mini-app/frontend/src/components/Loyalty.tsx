@@ -183,7 +183,7 @@ export function Loyalty() {
             </thead>
             <tbody>
               {SUBSCRIPTION_PLANS.map((plan, idx) => {
-                const discountedPrice = getDiscountedPrice(plan.price, currentLevel);
+                const discountedPrice = getDiscountedPrice(plan.price, currentLevel, plan.months);
                 return (
                   <tr
                     key={plan.id}
