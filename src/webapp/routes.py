@@ -155,12 +155,16 @@ async def get_user_payments(request: web.Request) -> web.Response:
             elif status in ['canceled', 'failed', 'expired']:
                 status = 'failed'
             
+            # Определяем тип платежа (подарок или подписка)
+            payload = str(p.get('invoice_payload', ''))
+            is_gift = payload.startswith('gift:') or payload.startswith('yookassa_gift:')
+            
             formatted.append({
                 'id': str(p.get('id')),
                 'date': p.get('created_at', '')[:10] if p.get('created_at') else '',
                 'amount': p.get('stars', 0) if is_stars else p.get('amount_rub', 0),
                 'currency': '⭐' if is_stars else '₽',
-                'type': 'gift' if str(p.get('invoice_payload', '')).startswith('gift:') else 'subscription',
+                'type': 'gift' if is_gift else 'subscription',
                 'periodDays': p.get('subscription_days', 0),
                 'method': payment_method,
                 'status': status,

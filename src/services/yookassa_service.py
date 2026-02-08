@@ -459,20 +459,20 @@ async def create_yookassa_gift_payment(
         raise ValueError("YooKassa not configured")
     
     settings = get_settings()
-    
-    # Получаем цену в рублях
-    rub_prices = {
-        1: settings.subscription_rub_1month,
-        3: settings.subscription_rub_3months,
-        6: settings.subscription_rub_6months,
-        12: settings.subscription_rub_12months,
-    }
-    
-    if subscription_months not in rub_prices:
-        raise ValueError(f"Invalid subscription months: {subscription_months}")
-    
-    amount = rub_prices[subscription_months]
     subscription_days = subscription_months * 30
+    
+    # Получаем цену с учётом скидки лояльности
+    from src.services.loyalty_service import get_price_with_discount
+    price_info = get_price_with_discount(user_id, subscription_days)
+    
+    base_amount = price_info['base_price']
+    amount = price_info['discounted_price']
+    
+    if price_info['discount'] > 0:
+        logger.info(
+            "Loyalty discount applied for gift: %s₽ -> %s₽ for user %s",
+            base_amount, amount, user_id
+        )
     
     # Описание подарка
     locale_map = {
