@@ -1,10 +1,18 @@
 import { useState } from 'react';
-import { Gift, Copy, Check, Plus, Clock, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { Gift, Copy, Check, Plus, Clock, CheckCircle2, Loader2, AlertCircle, Star, Smartphone, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '../lib/utils';
 import { SUBSCRIPTION_PLANS, getLoyaltyLevel, getDiscountedPrice } from '../config/pricing';
 import { useGifts, useUserProfile } from '../hooks/useApi';
-import { activateGiftCode } from '../api/client';
+import { activateGiftCode, createPayment } from '../api/client';
+
+type PaymentMethod = 'stars' | 'sbp' | 'card';
+
+const paymentMethods: { id: PaymentMethod; name: string; icon: React.ReactNode; description: string }[] = [
+  { id: 'stars', name: 'Telegram Stars', icon: <Star className="w-5 h-5" />, description: 'Быстрая оплата' },
+  { id: 'sbp', name: 'СБП', icon: <Smartphone className="w-5 h-5" />, description: 'Без комиссии' },
+  { id: 'card', name: 'Карта', icon: <CreditCard className="w-5 h-5" />, description: 'Visa/MasterCard/МИР' },
+];
 
 export function Gifts() {
   const { data: profile } = useUserProfile();
@@ -12,6 +20,8 @@ export function Gifts() {
   const [activeTab, setActiveTab] = useState<'purchase' | 'my' | 'received'>('purchase');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState('1m');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('stars');
+  const [processing, setProcessing] = useState(false);
   const [activateCode, setActivateCode] = useState('');
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
@@ -69,10 +79,48 @@ export function Gifts() {
     }
   };
 
-  const handlePurchaseGift = () => {
+  const handlePurchaseGift = async () => {
+    setProcessing(true);
     haptic('medium');
-    // TODO: Реализовать покупку через API
-    alert('Функция покупки подарка будет добавлена');
+
+    try {
+      const plan = SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan);
+      if (!plan) {
+        throw new Error('План не найден');
+      }
+
+      toast.loading('Создание платежа...', { id: 'gift-payment' });
+
+      const result = await createPayment(plan.months, selectedMethod, true); // isGift = true
+      
+      if (result.success && result.paymentUrl) {
+        toast.dismiss('gift-payment');
+        haptic('success');
+        
+        toast.info('Переход к оплате...', {
+          description: 'Завершите оплату и вернитесь в Mini App',
+          duration: 3000,
+        });
+        
+        setTimeout(() => {
+          if (window.Telegram?.WebApp?.openLink) {
+            window.Telegram.WebApp.openLink(result.paymentUrl!);
+          } else {
+            window.open(result.paymentUrl, '_blank');
+          }
+        }, 500);
+      } else {
+        toast.dismiss('gift-payment');
+        throw new Error(result.error || 'Ошибка создания платежа');
+      }
+    } catch (e) {
+      toast.dismiss('gift-payment');
+      haptic('error');
+      const errorMessage = e instanceof Error ? e.message : 'Произошла ошибка';
+      toast.error('Ошибка', { description: errorMessage });
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -168,13 +216,63 @@ export function Gifts() {
             })}
           </div>
 
+          {/* Payment Methods */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide">
+              Способ оплаты
+            </h3>
+            <div className="space-y-2">
+              {paymentMethods.map((method) => (
+                <button
+                  key={method.id}
+                  onClick={() => {
+                    haptic('light');
+                    setSelectedMethod(method.id);
+                  }}
+                  className={`w-full rounded-xl p-4 border transition-all text-left flex items-center gap-3 ${
+                    selectedMethod === method.id
+                      ? 'bg-[#6366F1]/10 border-[#6366F1]'
+                      : 'bg-[#1A1A1A] border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    selectedMethod === method.id ? 'bg-[#6366F1]' : 'bg-[#2A2A2A]'
+                  }`}>
+                    {method.icon}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold">{method.name}</p>
+                    <p className="text-xs text-[#6B7280]">{method.description}</p>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    selectedMethod === method.id 
+                      ? 'border-[#6366F1] bg-[#6366F1]' 
+                      : 'border-[#6B7280]'
+                  }`}>
+                    {selectedMethod === method.id && <Check className="w-3 h-3" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Purchase Button */}
           <button 
             onClick={handlePurchaseGift}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] font-semibold text-lg hover:shadow-lg hover:shadow-[#6366F1]/50 transition-shadow flex items-center justify-center gap-2"
+            disabled={processing}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] font-semibold text-lg hover:shadow-lg hover:shadow-[#6366F1]/50 transition-shadow flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Plus className="w-5 h-5" />
-            Купить подарок
+            {processing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Создание платежа...
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                Купить подарок
+              </>
+            )}
           </button>
 
           {/* Activate Gift Code */}
